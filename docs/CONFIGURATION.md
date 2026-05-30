@@ -30,7 +30,7 @@ context.config.githubPay  >  context.pluginConfig.githubPay  >  process.env  >  
 `payerAccountId` additionally falls back to the HAK operator (`context.accountId`).
 
 ```ts
-import { githubPayPlugin } from "@jmgomezl/github-pay";
+import { githubPayPlugin } from "hak-github-pay-plugin";
 
 const context = {
   accountId: "0.0.1234",            // operator = default payer

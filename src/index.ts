@@ -1,4 +1,4 @@
-// @jmgomezl/github-pay — public library surface.
+// hak-github-pay-plugin — public library surface.
 //
 // The default export is the HAK v4 plugin; everything a host needs to embed,
 // configure, or drive the plugin is re-exported here.

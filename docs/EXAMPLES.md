@@ -24,7 +24,7 @@ github-pay > show me octocat's payment history
 
 ```ts
 import { HederaAgentAPI } from "@hashgraph/hedera-agent-kit";
-import { githubPayPlugin } from "@jmgomezl/github-pay";
+import { githubPayPlugin } from "hak-github-pay-plugin";
 
 const context = { accountId: operatorId, config: { githubPay: { network: "testnet" } } };
 const tools = githubPayPlugin.tools(context);
@@ -39,7 +39,7 @@ await api.run("github_pay_register_contributor", {
 ## Call the domain logic directly (no agent loop)
 
 ```ts
-import { payOnMerge } from "@jmgomezl/github-pay";
+import { payOnMerge } from "hak-github-pay-plugin";
 
 const result = await payOnMerge(client, "testnet", payerAccountId, {
   repo: "jmgomezl/demo-repo",
@@ -54,7 +54,7 @@ const result = await payOnMerge(client, "testnet", payerAccountId, {
 ## Mount just the webhook server
 
 ```ts
-import { createWebhookServer, createGithubPayAgent } from "@jmgomezl/github-pay";
+import { createWebhookServer, createGithubPayAgent } from "hak-github-pay-plugin";
 
 const agent = createGithubPayAgent({ accountId, privateKey, network: "testnet", geminiApiKey });
 const app = createWebhookServer({ agent, webhookSecret: process.env.GITHUB_WEBHOOK_SECRET! });

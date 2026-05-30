@@ -1,7 +1,7 @@
-# @jmgomezl/github-pay
+# hak-github-pay-plugin
 
 [![CI](https://github.com/jmgomezl/hak-plugin-github-pay/actions/workflows/ci.yml/badge.svg)](https://github.com/jmgomezl/hak-plugin-github-pay/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/@jmgomezl/github-pay.svg)](https://www.npmjs.com/package/@jmgomezl/github-pay)
+[![npm version](https://img.shields.io/npm/v/hak-github-pay-plugin.svg)](https://www.npmjs.com/package/hak-github-pay-plugin)
 [![license: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![node >= 20](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](package.json)
 [![HAK v4](https://img.shields.io/badge/HAK-v4-7056F5.svg)](https://github.com/hashgraph/hedera-agent-kit)
@@ -43,7 +43,7 @@ Every enterprise requirement, where it lives, and how to verify it. Full threat 
 | **Admin/payer key separation** (payer key alone cannot raise its own cap) | ✅ | POLICIES topic `submitKey` = dedicated admin key ([`ensureTopics`](src/hcs.ts)) | [`scripts/prove-admin-key.mjs`](scripts/prove-admin-key.mjs) — payer-only write → `INVALID_SIGNATURE` |
 | **Human-in-the-loop / 4-eyes** (PR merge = approval) | ✅ | merge-gated payout in [`createWebhookServer`](src/server.ts) | [SECURITY.md](SECURITY.md) |
 | **`GET /health`** (topic connectivity + last operation) | ✅ | [`createWebhookServer`](src/server.ts) | `curl /health` → per-topic status |
-| **`createWebhookServer()`** Express helper | ✅ | [src/server.ts](src/server.ts) | exported from `@jmgomezl/github-pay/server` |
+| **`createWebhookServer()`** Express helper | ✅ | [src/server.ts](src/server.ts) | exported from `hak-github-pay-plugin/server` |
 | **4 HCS topics auto-provisioned** → `store.json` | ✅ | [`ensureTopics`](src/hcs.ts) | live IDs in the table below |
 | **Immutable audit trail** (policy, identity, receipts) | ✅ | append-only HCS topics | verifiable on Hashscan |
 | **Supply-chain provenance** (SHA-256 + commit, NIST SSDF) | ✅ | [`sealReleaseProvenance`](src/pay.ts) | RELEASES topic on Hashscan |
@@ -96,7 +96,7 @@ All are HAK v4 `BaseTool` subclasses, exposed through the plain-object plugin pa
 
 ```bash
 # 1. Install
-npm install              # in this repo, or: npm install @jmgomezl/github-pay
+npm install              # in this repo, or: npm install hak-github-pay-plugin
 
 # 2. Configure
 cp .env.example .env     # then fill in HEDERA_*, GEMINI_API_KEY, GITHUB_WEBHOOK_SECRET
@@ -122,7 +122,7 @@ The agent (Gemini 2.5 Flash, function-calling) maps each request to the right to
 ### Or use the plugin directly in your own HAK agent
 
 ```ts
-import { githubPayPlugin } from "@jmgomezl/github-pay";
+import { githubPayPlugin } from "hak-github-pay-plugin";
 
 // The plugin reads its config from the HAK Context — no factory args.
 const context = { accountId: "0.0.1234", config: { githubPay: { network: "testnet" } } };

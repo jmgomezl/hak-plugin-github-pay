@@ -1,6 +1,6 @@
 # Security & Threat Model
 
-`@jmgomezl/github-pay` moves real value (HBAR) automatically in response to
+`hak-github-pay-plugin` moves real value (HBAR) automatically in response to
 GitHub events. This document states the trust model, the controls that protect
 each step, and the known limitations — explicitly, so operators can make an
 informed deployment decision.
