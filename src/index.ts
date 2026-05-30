@@ -8,6 +8,7 @@ export { githubPayPlugin, githubPayPluginToolNames, default } from "./plugin.js"
 // Configuration
 export { resolveGithubPayConfig, requirePayerAccount } from "./config.js";
 export type { GithubPayConfig } from "./config.js";
+export { parsePrivateKey } from "./keys.js";
 
 // Networks & topic metadata
 export {

@@ -20,6 +20,7 @@ async function main() {
     geminiApiKey: getEnv("GEMINI_API_KEY"),
     githubToken: process.env.GITHUB_TOKEN || undefined,
     slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || undefined,
+    policyAdminKey: process.env.POLICY_ADMIN_KEY || undefined,
   });
 
   console.log("⛓  github-pay — provisioning HCS topics…");

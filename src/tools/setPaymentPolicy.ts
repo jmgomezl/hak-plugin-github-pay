@@ -3,6 +3,7 @@ import type { Client } from "@hiero-ledger/sdk";
 import { z } from "zod";
 import { resolveGithubPayConfig } from "../config.js";
 import { recordOperation, submitMessage } from "../hcs.js";
+import { parsePrivateKey } from "../keys.js";
 import type { PolicyRule } from "../types.js";
 import { GithubPayTool } from "./base.js";
 
@@ -25,7 +26,7 @@ export class SetPaymentPolicyTool extends GithubPayTool<Input> {
   parameters = inputSchema;
 
   async coreAction(params: Input, context: Context, client: Client) {
-    const { network } = resolveGithubPayConfig(context);
+    const { network, policyAdminKey } = resolveGithubPayConfig(context);
     const rule: PolicyRule = {
       kind: "policy_rule",
       repo: params.repo,
@@ -34,7 +35,8 @@ export class SetPaymentPolicyTool extends GithubPayTool<Input> {
       recipient: "pr_author",
       timestamp: new Date().toISOString(),
     };
-    const seal = await submitMessage(client, network, "POLICIES", rule);
+    const submitKey = policyAdminKey ? parsePrivateKey(policyAdminKey) : undefined;
+    const seal = await submitMessage(client, network, "POLICIES", rule, submitKey);
     recordOperation(this.method, `${params.repo} ${params.label} → ${params.amount_hbar} HBAR`);
     return { policy: rule, ...seal };
   }

@@ -6,10 +6,11 @@ import {
   SchemaType,
 } from "@google/generative-ai";
 import { type Context, HederaAgentAPI, type Tool } from "@hashgraph/hedera-agent-kit";
-import { AccountId, Client, PrivateKey } from "@hiero-ledger/sdk";
+import { AccountId, Client } from "@hiero-ledger/sdk";
 import { z } from "zod";
 import type { GithubPayConfig } from "./config.js";
 import { ensureTopics } from "./hcs.js";
+import { parsePrivateKey } from "./keys.js";
 import { githubPayPlugin } from "./plugin.js";
 
 export type GithubPayAgent = {
@@ -19,14 +20,9 @@ export type GithubPayAgent = {
   network: string;
   payerAccountId: string;
   geminiApiKey: string;
+  /** Set when a dedicated POLICIES admin key is configured. */
+  policyAdminKey?: string;
 };
-
-function parseKey(privateKey: string): PrivateKey {
-  const normalized = privateKey.startsWith("0x") ? privateKey.slice(2) : privateKey;
-  return normalized.startsWith("302")
-    ? PrivateKey.fromStringDer(normalized)
-    : PrivateKey.fromStringECDSA(normalized);
-}
 
 export function createGithubPayAgent(opts: {
   accountId: string;
@@ -35,9 +31,10 @@ export function createGithubPayAgent(opts: {
   geminiApiKey: string;
   githubToken?: string;
   slackWebhookUrl?: string;
+  policyAdminKey?: string;
 }): GithubPayAgent {
   const client = opts.network === "mainnet" ? Client.forMainnet() : Client.forTestnet();
-  client.setOperator(AccountId.fromString(opts.accountId), parseKey(opts.privateKey));
+  client.setOperator(AccountId.fromString(opts.accountId), parsePrivateKey(opts.privateKey));
 
   // The tools resolve their config from the HAK Context (resolveGithubPayConfig).
   const githubPay: GithubPayConfig = {
@@ -45,6 +42,7 @@ export function createGithubPayAgent(opts: {
     payerAccountId: opts.accountId,
     githubToken: opts.githubToken,
     slackWebhookUrl: opts.slackWebhookUrl,
+    policyAdminKey: opts.policyAdminKey,
   };
   const context = { accountId: opts.accountId, config: { githubPay } } as Context;
 
@@ -58,12 +56,20 @@ export function createGithubPayAgent(opts: {
     network: opts.network,
     payerAccountId: opts.accountId,
     geminiApiKey: opts.geminiApiKey,
+    policyAdminKey: opts.policyAdminKey,
   };
 }
 
-/** Provision the 4 HCS topics if they don't exist yet. Returns the topic map. */
+/**
+ * Provision the 4 HCS topics if they don't exist yet. When a POLICIES admin key
+ * is configured, a freshly-created POLICIES topic is locked with it as the
+ * submitKey. Returns the topic map.
+ */
 export async function initTopics(agent: GithubPayAgent) {
-  return ensureTopics(agent.client);
+  const policyAdminPublicKey = agent.policyAdminKey
+    ? parsePrivateKey(agent.policyAdminKey).publicKey
+    : undefined;
+  return ensureTopics(agent.client, { policyAdminPublicKey });
 }
 
 // ─── zod → Gemini function-declaration conversion ─────────────────────────────

@@ -3,6 +3,7 @@ import type { Client } from "@hiero-ledger/sdk";
 import { z } from "zod";
 import { resolveGithubPayConfig } from "../config.js";
 import { recordOperation, submitMessage } from "../hcs.js";
+import { parsePrivateKey } from "../keys.js";
 import type { PaymentCap } from "../types.js";
 import { GithubPayTool } from "./base.js";
 
@@ -28,7 +29,7 @@ export class SetPaymentCapTool extends GithubPayTool<Input> {
   parameters = inputSchema;
 
   async coreAction(params: Input, context: Context, client: Client) {
-    const { network } = resolveGithubPayConfig(context);
+    const { network, policyAdminKey } = resolveGithubPayConfig(context);
     const cap: PaymentCap = {
       kind: "payment_cap",
       repo: params.repo,
@@ -36,7 +37,8 @@ export class SetPaymentCapTool extends GithubPayTool<Input> {
       perContributorCapHbar: params.per_contributor_cap_hbar,
       timestamp: new Date().toISOString(),
     };
-    const seal = await submitMessage(client, network, "POLICIES", cap);
+    const submitKey = policyAdminKey ? parsePrivateKey(policyAdminKey) : undefined;
+    const seal = await submitMessage(client, network, "POLICIES", cap, submitKey);
     recordOperation(
       this.method,
       `${params.repo} monthly=${params.monthly_cap_hbar} perContrib=${params.per_contributor_cap_hbar}`,

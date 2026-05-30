@@ -26,6 +26,7 @@ Every enterprise requirement, where it lives, and how to verify it. Full threat 
 | **HMAC webhook signature** (`X-Hub-Signature-256`, constant-time, validated before processing) | ✅ | [`verifySignature`](src/server.ts) | [`tests/server.test.ts`](tests/server.test.ts) — 5 cases |
 | **Idempotency** (PR-number dedup; webhook retries safe) | ✅ | [`payOnMerge`](src/pay.ts) — durable RECEIPTS check + local fast-path guard + in-flight lock | Live testnet: retry → `already_paid`, balance unchanged |
 | **Spending caps** (monthly + per-contributor ceilings) | ✅ | [`resolveCap` / cap math](src/resolve.ts) | [`tests/resolve.test.ts`](tests/resolve.test.ts) |
+| **Admin/payer key separation** (payer key alone cannot raise its own cap) | ✅ | POLICIES topic `submitKey` = dedicated admin key ([`ensureTopics`](src/hcs.ts)) | [`scripts/prove-admin-key.mjs`](scripts/prove-admin-key.mjs) — payer-only write → `INVALID_SIGNATURE` |
 | **Human-in-the-loop / 4-eyes** (PR merge = approval) | ✅ | merge-gated payout in [`createWebhookServer`](src/server.ts) | [SECURITY.md](SECURITY.md) |
 | **`GET /health`** (topic connectivity + last operation) | ✅ | [`createWebhookServer`](src/server.ts) | `curl /health` → per-topic status |
 | **`createWebhookServer()`** Express helper | ✅ | [src/server.ts](src/server.ts) | exported from `@jmgomezl/github-pay/server` |
@@ -34,7 +35,7 @@ Every enterprise requirement, where it lives, and how to verify it. Full threat 
 | **Supply-chain provenance** (SHA-256 + commit, NIST SSDF) | ✅ | [`sealReleaseProvenance`](src/pay.ts) | RELEASES topic on Hashscan |
 | **CI** (typecheck · lint · 22 tests · dual build) | ✅ | [.github/workflows/ci.yml](.github/workflows/ci.yml) | green badge above |
 
-> **Honest by design:** known limitations for unattended mainnet use (single-instance idempotency, admin/payer key separation) are documented openly in [SECURITY.md](SECURITY.md#known-limitations-deploy-accordingly) — not hidden.
+> **Honest by design:** the financial-control authority is cryptographically separated from the payer (the POLICIES topic's `submitKey` is a dedicated admin key — a compromised payer key **cannot** raise its own cap, proven on-chain). Remaining deployment considerations for unattended mainnet use (e.g. multi-instance idempotency) are documented openly in [SECURITY.md](SECURITY.md#known-limitations-deploy-accordingly) — not hidden.
 
 ---
 
@@ -130,7 +131,7 @@ These four topics are live on Hedera **testnet** and carry real messages from th
 | Topic | ID | Hashscan |
 |-------|----|----------|
 | IDENTITIES | `0.0.9095825` | https://hashscan.io/testnet/topic/0.0.9095825 |
-| POLICIES   | `0.0.9095826` | https://hashscan.io/testnet/topic/0.0.9095826 |
+| POLICIES   | `0.0.9096046` | https://hashscan.io/testnet/topic/0.0.9096046 — 🔒 submitKey-locked (admin key) |
 | RECEIPTS   | `0.0.9095828` | https://hashscan.io/testnet/topic/0.0.9095828 |
 | RELEASES   | `0.0.9095829` | https://hashscan.io/testnet/topic/0.0.9095829 |
 

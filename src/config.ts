@@ -11,6 +11,13 @@ export type GithubPayConfig = {
   githubToken?: string;
   /** Optional Slack/Teams incoming-webhook URL for payment notifications. */
   slackWebhookUrl?: string;
+  /**
+   * Optional dedicated admin key (DER or ECDSA hex) for the POLICIES topic.
+   * When set, the POLICIES topic is created with this key as its HCS submitKey,
+   * so policy/cap writes must be signed by it — the payer key alone cannot raise
+   * its own spending cap. Separates financial-control authority from the payer.
+   */
+  policyAdminKey?: string;
 };
 
 type ContextWithConfig = {
@@ -39,6 +46,7 @@ export function resolveGithubPayConfig(context?: Context): GithubPayConfig {
     payerAccountId: fromCtx.payerAccountId ?? ctx.accountId ?? process.env.HEDERA_ACCOUNT_ID,
     githubToken: fromCtx.githubToken ?? process.env.GITHUB_TOKEN ?? undefined,
     slackWebhookUrl: fromCtx.slackWebhookUrl ?? process.env.SLACK_WEBHOOK_URL ?? undefined,
+    policyAdminKey: fromCtx.policyAdminKey ?? process.env.POLICY_ADMIN_KEY ?? undefined,
   };
 }
 

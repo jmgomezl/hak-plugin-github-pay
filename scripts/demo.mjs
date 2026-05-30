@@ -6,8 +6,8 @@
 // Usage:  node scripts/demo.mjs   (needs Node >= 20 and a populated .env)
 import "dotenv/config";
 import {
-  AccountCreateTransaction,
   AccountBalanceQuery,
+  AccountCreateTransaction,
   AccountId,
   Hbar,
   PrivateKey,
@@ -104,7 +104,11 @@ async function main() {
   const bal = await new AccountBalanceQuery()
     .setAccountId(AccountId.fromString(recipient))
     .execute(agent.client);
-  console.log(c.green(`\n  ${c.bold(`Contributor balance: ${bal.hbars.toString()}`)}  — paid exactly once ✅`));
+  console.log(
+    c.green(
+      `\n  ${c.bold(`Contributor balance: ${bal.hbars.toString()}`)}  — paid exactly once ✅`,
+    ),
+  );
 
   console.log(c.dim("\n  Every step above is sealed on Hedera. Verify on Hashscan. 🔗\n"));
   agent.client.close();

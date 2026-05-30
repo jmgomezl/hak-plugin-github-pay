@@ -2,6 +2,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   type Client,
+  type PrivateKey,
+  type PublicKey,
   TopicCreateTransaction,
   TopicMessageSubmitTransaction,
 } from "@hiero-ledger/sdk";
@@ -66,8 +68,22 @@ export function markPrPaidLocally(repo: string, prNumber: number): void {
 
 // ─── Topic provisioning ───────────────────────────────────────────────────────
 
-async function createTopic(client: Client, name: TopicName): Promise<string> {
+export type EnsureTopicsOptions = {
+  /**
+   * Public key set as the POLICIES topic submitKey on creation. When provided,
+   * only holders of the matching private key may write policy/cap messages —
+   * the payer key alone cannot raise its own spending cap.
+   */
+  policyAdminPublicKey?: PublicKey;
+};
+
+async function createTopic(
+  client: Client,
+  name: TopicName,
+  submitKey?: PublicKey,
+): Promise<string> {
   const tx = new TopicCreateTransaction().setTopicMemo(TOPIC_MEMOS[name]);
+  if (submitKey) tx.setSubmitKey(submitKey);
   const receipt = await (await tx.execute(client)).getReceipt(client);
   const topicId = receipt.topicId;
   if (!topicId) throw new Error(`Topic creation for ${name} returned no topic id`);
@@ -78,14 +94,21 @@ async function createTopic(client: Client, name: TopicName): Promise<string> {
  * Ensure all four HCS topics exist. Any topic whose ID is missing from
  * store.json is created on-chain and persisted. Idempotent: existing topics are
  * left untouched. Returns the resolved topic map.
+ *
+ * If `policyAdminPublicKey` is given, a freshly-created POLICIES topic is locked
+ * with it as the submitKey (separating financial-control authority from the payer).
  */
-export async function ensureTopics(client: Client): Promise<Record<TopicName, string>> {
+export async function ensureTopics(
+  client: Client,
+  opts: EnsureTopicsOptions = {},
+): Promise<Record<TopicName, string>> {
   const store = loadStore();
   let mutated = false;
 
   for (const name of TOPIC_NAMES) {
     if (!store.topics[name]) {
-      store.topics[name] = await createTopic(client, name);
+      const submitKey = name === "POLICIES" ? opts.policyAdminPublicKey : undefined;
+      store.topics[name] = await createTopic(client, name, submitKey);
       mutated = true;
     }
   }
@@ -112,13 +135,23 @@ export async function submitMessage(
   network: string,
   topicName: TopicName,
   payload: unknown,
+  /** Required when the topic has a submitKey (e.g. POLICIES with an admin key). */
+  submitKey?: PrivateKey,
 ): Promise<SealResult> {
   const topicId = getTopicId(topicName);
   const tx = new TopicMessageSubmitTransaction()
     .setTopicId(topicId)
     .setMessage(JSON.stringify(payload));
 
-  const receipt = await (await tx.execute(client)).getReceipt(client);
+  // If the topic is locked with a submitKey, the message must carry that
+  // signature in addition to the operator's fee-payer signature.
+  let execable: TopicMessageSubmitTransaction = tx;
+  if (submitKey) {
+    execable = await tx.freezeWith(client);
+    await execable.sign(submitKey);
+  }
+
+  const receipt = await (await execable.execute(client)).getReceipt(client);
   const sequenceNumber = receipt.topicSequenceNumber?.toString() ?? "unknown";
 
   return {

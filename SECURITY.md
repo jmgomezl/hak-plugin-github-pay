@@ -26,8 +26,9 @@ informed deployment decision.
 1. **Human approval** — no merge, no pay. Enforced by checking `merged: true`.
 2. **Policy allowlist** — a label only pays if a `set_payment_policy` rule exists for `(repo, label)`. Unknown labels return `skipped`, never a default payout.
 3. **Spending caps** — `set_payment_cap` writes monthly + per-contributor ceilings; `pay_on_merge` refuses any transfer that would exceed them.
-4. **Idempotency** — see below; a PR is paid at most once.
-5. **Immutable audit trail** — policy, identity, receipts, and provenance are append-only on HCS and cannot be rewritten.
+4. **Admin/payer key separation (enforced on-chain)** — when `POLICY_ADMIN_KEY` is configured, the POLICIES topic is created with that key as its HCS **submitKey**. Payment rules and caps can then *only* be written by the admin key; the payer key that sends HBAR **cannot raise its own cap**. A compromised payer key can spend up to the existing cap but cannot lift it. Proven on testnet (`scripts/prove-admin-key.mjs`): a payer-key-only write to POLICIES is rejected with `INVALID_SIGNATURE`.
+5. **Idempotency** — see below; a PR is paid at most once.
+6. **Immutable audit trail** — policy, identity, receipts, and provenance are append-only on HCS and cannot be rewritten.
 
 ## Idempotency guarantee
 
@@ -48,9 +49,8 @@ This was validated on testnet: a duplicate PR event returns `already_paid` and t
 We document these rather than hide them:
 
 1. **Single-instance idempotency.** The fast-path guard and in-flight lock are per-process. Running multiple webhook replicas behind a load balancer reopens the mirror-lag window — for multi-instance, back the guard with a shared store (Redis/DB) or on-chain dedup. The durable RECEIPTS check still applies once the mirror indexes.
-2. **Shared admin/payer key.** The POLICIES cap is written by the same operator key that sends payments, so the cap is only as strong as that key. For production, separate the policy-admin key from the payer key (or multisig the payer) so a compromised payer key cannot also raise its own ceiling.
-3. **Key custody.** Keys live in the environment, not a KMS/HSM. Use your platform's secret manager and rotate regularly.
-4. **Crash window.** The transfer and the receipt seal are sequential; a crash between them leaves a payment whose receipt is pending. The local guard prevents a re-pay on retry; a durable queue would close this fully.
+2. **Key custody.** Keys live in the environment, not a KMS/HSM. The admin/payer key separation above limits blast radius, but for production hold both keys in your platform's secret manager (or an HSM) and rotate regularly.
+3. **Crash window.** The transfer and the receipt seal are sequential; a crash between them leaves a payment whose receipt is pending. The local guard prevents a re-pay on retry; a durable queue would close this fully.
 
 ## Reporting a vulnerability
 

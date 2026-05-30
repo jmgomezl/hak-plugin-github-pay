@@ -9,6 +9,7 @@
 | `HEDERA_NETWORK` | | `testnet` (default) or `mainnet` |
 | `GEMINI_API_KEY` | ✅ (app) | Gemini 2.5 Flash for the agent loop |
 | `GITHUB_WEBHOOK_SECRET` | ✅ (app) | HMAC secret for `X-Hub-Signature-256` |
+| `POLICY_ADMIN_KEY` | | Dedicated admin key for the POLICIES topic `submitKey`. When set, only this key can write payment rules/caps — the payer key cannot raise its own cap. Separate it from `HEDERA_PRIVATE_KEY`. |
 | `GITHUB_TOKEN` | | Fetch private release assets in `seal_release_provenance` |
 | `SLACK_WEBHOOK_URL` | | Post a notification on each successful payment |
 | `PORT` | | Webhook server port (default 3000) |
