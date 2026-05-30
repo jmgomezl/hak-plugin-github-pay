@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>github-pay — merge a PR, get paid in HBAR</title>
+<meta name="description" content="When a GitHub PR is merged, an AI agent automatically pays the contributor in HBAR. Policy, identity, receipts & provenance live immutably on Hedera." />
+<style>
+  :root{
+    --bg:#0a0b12; --bg2:#11131f; --card:#151827; --line:#262a3d;
+    --txt:#e7e9f3; --dim:#9aa0bd; --pur:#8a7cff; --pur2:#6d5efc;
+    --grn:#39d98a; --grnd:#1f8f5f; --yel:#ffd166; --red:#ff6b6b;
+    --mono:"SFMono-Regular",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#1a1733 0%,var(--bg) 55%);
+    color:var(--txt);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.55}
+  a{color:var(--pur);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:980px;margin:0 auto;padding:0 22px}
+  .mono{font-family:var(--mono)}
+  /* nav */
+  nav{display:flex;align-items:center;justify-content:space-between;padding:20px 0;flex-wrap:wrap;gap:10px}
+  .brand{font-family:var(--mono);font-weight:700;font-size:18px;letter-spacing:-.5px}
+  .brand b{color:var(--pur)}
+  .navlinks a{color:var(--dim);font-size:14px;margin-left:18px}
+  .navlinks a:hover{color:var(--txt)}
+  .pill{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--dim);
+    border:1px solid var(--line);border-radius:999px;padding:5px 11px;background:var(--bg2)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--grn);box-shadow:0 0 10px var(--grn);animation:pulse 2s infinite}
+  @keyframes pulse{50%{opacity:.45}}
+  /* hero */
+  .hero{text-align:center;padding:34px 0 10px}
+  .hero h1{font-size:clamp(30px,5vw,52px);line-height:1.05;margin:14px 0 6px;letter-spacing:-1.5px}
+  .hero h1 .g{background:linear-gradient(90deg,var(--pur),#c4b5fd);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{color:var(--dim);font-size:18px;max-width:680px;margin:10px auto 0}
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:24px 0 6px}
+  .btn{display:inline-flex;align-items:center;gap:8px;border-radius:11px;padding:12px 20px;font-weight:600;
+    font-size:15px;border:1px solid var(--line);background:var(--card);color:var(--txt);cursor:pointer;transition:.15s}
+  .btn:hover{transform:translateY(-1px);text-decoration:none;border-color:var(--pur)}
+  .btn.primary{background:linear-gradient(90deg,var(--pur2),var(--pur));border:none;color:#fff;box-shadow:0 8px 30px -10px var(--pur)}
+  .btn.primary:hover{filter:brightness(1.08)}
+  /* stat bar */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:26px 0}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 14px;text-align:center}
+  .stat .v{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--txt)}
+  .stat .v.grn{color:var(--grn)} .stat .v.pur{color:var(--pur)}
+  .stat .k{color:var(--dim);font-size:12px;margin-top:3px;text-transform:uppercase;letter-spacing:.6px}
+  section{margin:40px 0}
+  h2{font-size:24px;letter-spacing:-.5px;margin:0 0 4px}
+  .sub{color:var(--dim);margin:0 0 18px}
+  /* steps */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .step .n{font-family:var(--mono);color:var(--pur);font-weight:700;font-size:13px}
+  .step h3{font-size:15px;margin:8px 0 4px} .step p{color:var(--dim);font-size:13.5px;margin:0}
+  /* claim */
+  .claim{background:linear-gradient(180deg,#171a2b,#12131f);border:1px solid var(--line);border-radius:18px;padding:26px}
+  .claim h2{margin-bottom:2px}
+  .claimrow{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+  .claimrow input{flex:1;min-width:220px;background:var(--bg);border:1px solid var(--line);border-radius:11px;
+    color:var(--txt);font-family:var(--mono);font-size:15px;padding:13px 14px;outline:none}
+  .claimrow input:focus{border-color:var(--pur)}
+  #result{margin-top:16px;font-family:var(--mono);font-size:14px;display:none;border-radius:11px;padding:14px 16px;border:1px solid var(--line)}
+  #result.show{display:block}
+  #result.ok{background:rgba(57,217,138,.08);border-color:var(--grnd)}
+  #result.warn{background:rgba(255,209,102,.07);border-color:#7a6a25}
+  #result.err{background:rgba(255,107,107,.07);border-color:#7a2a2a}
+  #result a{color:var(--pur)}
+  .hint{color:var(--dim);font-size:12.5px;margin-top:10px}
+  /* controls */
+  .ctrls{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .ctrl{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:flex;gap:13px;align-items:flex-start}
+  .ctrl .i{font-size:20px;line-height:1.2}
+  .ctrl h3{margin:0 0 3px;font-size:15.5px} .ctrl p{margin:0;color:var(--dim);font-size:13.5px}
+  /* receipts */
+  table{width:100%;border-collapse:collapse;font-size:13.5px;font-family:var(--mono)}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px}
+  td .amt{color:var(--grn);font-weight:700}
+  .tbl-wrap{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:auto}
+  /* topics */
+  .topics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+  .topic{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px}
+  .topic .t{font-family:var(--mono);font-size:12px;color:var(--pur);letter-spacing:.5px}
+  .topic .id{font-family:var(--mono);font-size:13px;margin-top:4px}
+  footer{border-top:1px solid var(--line);margin-top:50px;padding:24px 0 40px;color:var(--dim);font-size:13px;text-align:center}
+  @media(max-width:760px){.stats,.steps,.topics{grid-template-columns:repeat(2,1fr)}.ctrls{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <div class="brand"><b>github</b>-pay</div>
+    <div class="navlinks">
+      <span class="pill"><span class="dot"></span><span id="netpill">live · testnet</span></span>
+      <a href="https://github.com/jmgomezl/hak-plugin-github-pay" target="_blank">GitHub</a>
+      <a href="https://www.npmjs.com/package/@jmgomezl/github-pay" target="_blank">npm</a>
+      <a href="https://github.com/jmgomezl/hak-plugin-github-pay/blob/main/SECURITY.md" target="_blank">Security</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <span class="pill">⚡ HAK v4 plugin · Hedera AI Agent Bounty — Enterprise Agent + Plugin</span>
+    <h1>Merge a pull request,<br><span class="g">get paid in HBAR.</span></h1>
+    <p>When a GitHub PR is merged, an AI agent automatically pays the contributor — and the
+       <b>policy, identity, receipt &amp; provenance</b> all live immutably on the Hedera Consensus Service. No database.</p>
+    <div class="cta">
+      <a class="btn primary" href="#claim">💸 Claim 10 HBAR — try it live</a>
+      <a class="btn" href="https://github.com/jmgomezl/github-pay-demo" target="_blank">Open a PR on the demo repo →</a>
+    </div>
+  </header>
+
+  <div class="stats" id="stats">
+    <div class="stat"><div class="v pur" id="s-pool">—</div><div class="k">Pool balance</div></div>
+    <div class="stat"><div class="v grn" id="s-paid">—</div><div class="k">Total paid (ℏ)</div></div>
+    <div class="stat"><div class="v" id="s-pays">—</div><div class="k">Payments</div></div>
+    <div class="stat"><div class="v" id="s-contrib">—</div><div class="k">Contributors</div></div>
+  </div>
+
+  <section>
+    <h2>How it works</h2>
+    <p class="sub">Self-sovereign identity, immutable policy, automatic settlement — in four steps.</p>
+    <div class="steps">
+      <div class="step"><div class="n">01</div><h3>Register</h3><p>A contributor maps their GitHub handle → Hedera account on the public <b>IDENTITIES</b> topic. Any HAK plugin can reuse it.</p></div>
+      <div class="step"><div class="n">02</div><h3>Set policy + cap</h3><p>A repo admin seals <span class="mono">label → HBAR</span> rules and spending ceilings on the <b>POLICIES</b> topic — a <span class="mono">submitKey</span>-locked, immutable audit trail.</p></div>
+      <div class="step"><div class="n">03</div><h3>Merge the PR</h3><p>The merge is the approval. The agent validates an HMAC webhook, enforces idempotency &amp; caps, and transfers HBAR.</p></div>
+      <div class="step"><div class="n">04</div><h3>Receipt sealed</h3><p>A signed receipt lands on the <b>RECEIPTS</b> topic — verifiable forever on Hashscan.</p></div>
+    </div>
+  </section>
+
+  <section id="claim">
+    <div class="claim">
+      <h2>💸 Claim 10 HBAR — live, on-chain</h2>
+      <p class="sub">Enter your Hedera <b>testnet</b> account. The agent runs the real flow: caps &amp; idempotency enforced, receipt sealed on Hedera. Free testnet account at <a href="https://portal.hedera.com" target="_blank">portal.hedera.com</a>.</p>
+      <div class="claimrow">
+        <input id="acct" class="mono" placeholder="0.0.12345" autocomplete="off" spellcheck="false" />
+        <button class="btn primary" id="claimBtn" onclick="claim()">Pay me 10 HBAR</button>
+      </div>
+      <div id="result"></div>
+      <div class="hint">🛡️ Each account can claim <b>once</b> (per-contributor cap = the Sybil guard). The pool is capped at 500 ℏ/month, so it can't be drained — the point is watching the controls hold.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Enterprise controls — enforced, not promised</h2>
+    <p class="sub">Every payout runs through real, verifiable financial controls.</p>
+    <div class="ctrls">
+      <div class="ctrl"><div class="i">🔐</div><div><h3>HMAC webhook validation</h3><p>Every GitHub payload is verified against <span class="mono">X-Hub-Signature-256</span> (constant-time) before anything is processed.</p></div></div>
+      <div class="ctrl"><div class="i">♻️</div><div><h3>Idempotency</h3><p>Dedup on the PR number across a durable HCS topic + a local guard. Webhook retries never double-pay.</p></div></div>
+      <div class="ctrl"><div class="i">📊</div><div><h3>Spending caps</h3><p>Monthly + per-contributor ceilings, read from the POLICIES topic and enforced before every transfer.</p></div></div>
+      <div class="ctrl"><div class="i">🗝️</div><div><h3>Admin / payer key separation</h3><p>The POLICIES topic is <span class="mono">submitKey</span>-locked. The key that <i>pays</i> cannot raise its own cap — proven on-chain.</p></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Live receipts</h2>
+    <p class="sub">Real payments sealed on Hedera Consensus Service. <a id="receiptsLink" href="#" target="_blank">View the RECEIPTS topic →</a></p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>When</th><th>Repo</th><th>Contributor</th><th>Amount</th><th>Proof</th></tr></thead>
+        <tbody id="receipts"><tr><td colspan="5" style="color:var(--dim)">loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="topics" id="topics"></div>
+  </section>
+
+  <footer>
+    Built with <a href="https://github.com/hashgraph/hedera-agent-kit" target="_blank">Hedera Agent Kit v4</a> +
+    Gemini 2.5 Flash · <a href="https://www.npmjs.com/package/@jmgomezl/github-pay" target="_blank">@jmgomezl/github-pay</a> ·
+    MIT © jmgomezl ·
+    <a href="https://github-pay.aivylabs.xyz/health" target="_blank">/health</a>
+  </footer>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const fmt=n=>n==null?"—":(Math.round(n*100)/100).toLocaleString();
+const ago=t=>{const s=(Date.now()-new Date(t))/1000;if(s<60)return Math.floor(s)+"s ago";if(s<3600)return Math.floor(s/60)+"m ago";if(s<86400)return Math.floor(s/3600)+"h ago";return Math.floor(s/86400)+"d ago";};
+
+async function loadStats(){
+  try{
+    const r=await fetch("/api/stats");const d=await r.json();
+    $("#s-pool").textContent=d.poolBalance==null?"—":fmt(d.poolBalance);
+    $("#s-paid").textContent=fmt(d.totalPaidHbar);
+    $("#s-pays").textContent=d.payments;
+    $("#s-contrib").textContent=d.contributors;
+    $("#netpill").textContent="live · "+d.network;
+    const tp=$("#topics");tp.innerHTML="";
+    (d.topics||[]).forEach(t=>{
+      const a=document.createElement("a");a.href=t.hashscan||"#";a.target="_blank";a.style.textDecoration="none";
+      a.innerHTML=`<div class="topic"><div class="t">${t.name}</div><div class="id">${t.id||"—"}</div></div>`;
+      tp.appendChild(a);
+    });
+  }catch(e){}
+}
+async function loadReceipts(){
+  try{
+    const r=await fetch("/api/receipts?limit=10");const d=await r.json();
+    $("#receiptsLink").href=d.receiptsTopicHashscan||"#";
+    const tb=$("#receipts");
+    if(!d.receipts||!d.receipts.length){tb.innerHTML='<tr><td colspan="5" style="color:var(--dim)">No payments yet — be the first ☝️</td></tr>';return;}
+    tb.innerHTML=d.receipts.map(x=>`<tr>
+      <td style="color:var(--dim)">${ago(x.timestamp)}</td>
+      <td>${x.repo.split("/").pop()}</td>
+      <td>${x.account}</td>
+      <td><span class="amt">${x.amountHbar} ℏ</span></td>
+      <td><a href="${x.transactionHashscan}" target="_blank">tx ↗</a></td>
+    </tr>`).join("");
+  }catch(e){}
+}
+async function claim(){
+  const acct=$("#acct").value.trim();
+  const btn=$("#claimBtn");const res=$("#result");
+  res.className="show warn";res.innerHTML="⏳ Running the flow on Hedera…";
+  btn.disabled=true;btn.textContent="Paying…";
+  try{
+    const r=await fetch("/api/claim",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({account:acct})});
+    const d=await r.json();
+    if(d.status==="paid"){
+      res.className="show ok";
+      res.innerHTML=`✅ <b>Paid ${d.amountHbar} HBAR</b> to <b>${d.account}</b>!<br>
+        → <a href="${d.transactionHashscanUrl}" target="_blank">View transfer on Hashscan ↗</a><br>
+        → <a href="${d.receiptTopicHashscanUrl}" target="_blank">Receipt sealed on RECEIPTS topic ↗</a>`;
+      loadStats();loadReceipts();
+    }else if(d.status==="already_paid"){
+      res.className="show warn";
+      res.innerHTML=`🛡️ <b>${d.account}</b> already claimed its limit. The <b>per-contributor cap</b> blocked a second payout — exactly as designed.`;
+    }else{
+      res.className="show err";
+      res.innerHTML="⚠️ "+(d.reason||"Could not complete the claim.");
+    }
+  }catch(e){res.className="show err";res.innerHTML="⚠️ "+e.message;}
+  btn.disabled=false;btn.textContent="Pay me 10 HBAR";
+}
+$("#acct").addEventListener("keydown",e=>{if(e.key==="Enter")claim();});
+loadStats();loadReceipts();
+setInterval(loadStats,20000);setInterval(loadReceipts,20000);
+</script>
+</body>
+</html>

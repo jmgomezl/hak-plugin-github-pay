@@ -190,6 +190,109 @@ async function payOnMergeInner(
   return result;
 }
 
+// ─── Web demo claim ───────────────────────────────────────────────────────────
+// Pays a Hedera account directly (no PR), reusing the SAME on-chain policy +
+// caps + idempotency as pay_on_merge. Powers the "Claim 10 HBAR" button so a
+// judge can run the real flow in one click. The per-account cap is the Sybil
+// guard; the monthly cap bounds the pool.
+
+export type WebClaimResult =
+  | {
+      status: "paid";
+      amountHbar: number;
+      account: string;
+      transactionHashscanUrl: string;
+      receiptTopicHashscanUrl: string;
+    }
+  | { status: "already_paid"; amountHbar: number; account: string }
+  | { status: "skipped"; reason: string };
+
+export async function webClaim(
+  client: Client,
+  network: string,
+  payerAccountId: string,
+  repo: string,
+  label: string,
+  account: string,
+): Promise<WebClaimResult> {
+  if (!/^0\.0\.\d+$/.test(account)) {
+    return {
+      status: "skipped",
+      reason: `"${account}" is not a valid Hedera account id (e.g. 0.0.12345).`,
+    };
+  }
+
+  const rule = await resolvePolicyRule(network, repo, label);
+  if (!rule) return { status: "skipped", reason: `No payment policy for ${label} on ${repo}.` };
+
+  // Deterministic dedup key per account so repeat clicks return "already paid".
+  const prNumber = Number(account.split(".")[2]);
+
+  if (isPrPaidLocally(repo, prNumber)) {
+    return { status: "already_paid", amountHbar: rule.amountHbar, account };
+  }
+  const existing = await findReceiptForPr(network, repo, prNumber);
+  if (existing) {
+    markPrPaidLocally(repo, prNumber);
+    return { status: "already_paid", amountHbar: rule.amountHbar, account };
+  }
+
+  // Spending caps — same controls as the PR flow.
+  const cap = await resolveCap(network, repo);
+  if (cap) {
+    const receipts = await getAllReceipts(network);
+    const now = new Date();
+    if (monthlySpend(receipts, repo, now) + rule.amountHbar > cap.monthlyCapHbar) {
+      return {
+        status: "skipped",
+        reason: `Monthly pool cap (${cap.monthlyCapHbar} HBAR) reached. Try again next month.`,
+      };
+    }
+    if (
+      contributorMonthlySpend(receipts, repo, account, now) + rule.amountHbar >
+      cap.perContributorCapHbar
+    ) {
+      return {
+        status: "skipped",
+        reason: `This account already claimed its ${cap.perContributorCapHbar} HBAR limit. (The per-contributor cap is the Sybil guard.)`,
+      };
+    }
+  }
+
+  const amount = new Hbar(rule.amountHbar);
+  const tx = new TransferTransaction()
+    .addHbarTransfer(AccountId.fromString(payerAccountId), amount.negated())
+    .addHbarTransfer(AccountId.fromString(account), amount)
+    .setTransactionMemo(`github-pay web-claim ${account}`.slice(0, 100));
+  const submit = await tx.execute(client);
+  await submit.getReceipt(client);
+  const transactionId = submit.transactionId.toString();
+  markPrPaidLocally(repo, prNumber);
+
+  const receipt: Receipt = {
+    kind: "receipt",
+    repo,
+    prNumber,
+    prUrl: "https://github-pay.aivylabs.xyz",
+    githubHandle: "web-demo",
+    hederaAccountId: account,
+    amountHbar: rule.amountHbar,
+    label,
+    transactionId,
+    timestamp: new Date().toISOString(),
+  };
+  const seal = await submitMessage(client, network, "RECEIPTS", receipt);
+  recordOperation("web_claim", `${account} ← ${rule.amountHbar} HBAR`);
+
+  return {
+    status: "paid",
+    amountHbar: rule.amountHbar,
+    account,
+    transactionHashscanUrl: `${hashscanBase(network)}/transaction/${encodeURIComponent(transactionId)}`,
+    receiptTopicHashscanUrl: seal.hashscanUrl,
+  };
+}
+
 // ─── seal_release_provenance ──────────────────────────────────────────────────
 
 export type ReleaseInput = {

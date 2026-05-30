@@ -37,6 +37,10 @@ async function main() {
     githubToken: process.env.GITHUB_TOKEN || undefined,
     slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || undefined,
     demoAutoRegisterRepo: process.env.DEMO_AUTO_REGISTER_REPO || undefined,
+    staticDir: process.env.STATIC_DIR || undefined,
+    demoApi: process.env.DEMO_API_REPO
+      ? { repo: process.env.DEMO_API_REPO, label: process.env.DEMO_API_LABEL || "bounty-10" }
+      : undefined,
   });
   server.listen(port, () => {
     console.log(`\n🌐 webhook server listening on http://localhost:${port}`);

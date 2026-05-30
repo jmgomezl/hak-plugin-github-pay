@@ -1,9 +1,17 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import express, { type Express, type Request, type Response } from "express";
+import rateLimit from "express-rate-limit";
 import type { GithubPayAgent } from "./agent.js";
-import { loadStore, topicMessageCount } from "./hcs.js";
-import { TOPIC_NAMES, mirrorBase } from "./networks.js";
-import { type PayOnMergeResult, notifySlack, payOnMerge, sealReleaseProvenance } from "./pay.js";
+import { getTopicId, loadStore, topicMessageCount } from "./hcs.js";
+import { TOPIC_NAMES, hashscanBase, mirrorBase, topicHashscanUrl } from "./networks.js";
+import {
+  type PayOnMergeResult,
+  notifySlack,
+  payOnMerge,
+  sealReleaseProvenance,
+  webClaim,
+} from "./pay.js";
+import { getAllReceipts } from "./resolve.js";
 import type { TopicName } from "./types.js";
 
 export type WebhookServerOptions = {
@@ -18,6 +26,10 @@ export type WebhookServerOptions = {
    * contributors register explicitly via `register_contributor`.
    */
   demoAutoRegisterRepo?: string;
+  /** Serve a static directory (the landing page) at `/`. */
+  staticDir?: string;
+  /** Enable the public demo API (/api/stats, /api/receipts, POST /api/claim). */
+  demoApi?: { repo: string; label: string };
 };
 
 // Extract the first Hedera account id (0.0.x) from free text, e.g. a PR body.
@@ -66,6 +78,94 @@ export function createWebhookServer(opts: WebhookServerOptions): Express {
       },
     }),
   );
+
+  // ─── Public demo API (opt-in) ─────────────────────────────────────────────────
+  if (opts.demoApi) {
+    const { repo, label } = opts.demoApi;
+    const net = agent.network;
+
+    // GET /api/stats — pool balance, totals, topics (for the landing page).
+    app.get("/api/stats", async (_req: Request, res: Response) => {
+      try {
+        const store = loadStore();
+        const receipts = await getAllReceipts(net);
+        const totalPaid = receipts.reduce((s, r) => s + r.amountHbar, 0);
+        const contributors = new Set(receipts.map((r) => r.hederaAccountId)).size;
+        let poolBalance: number | null = null;
+        try {
+          const r = await fetch(`${mirrorBase(net)}/api/v1/accounts/${agent.payerAccountId}`);
+          if (r.ok) poolBalance = ((await r.json()) as any).balance.balance / 1e8;
+        } catch {}
+        res.json({
+          network: net,
+          payerAccount: agent.payerAccountId,
+          poolBalance,
+          totalPaidHbar: totalPaid,
+          payments: receipts.length,
+          contributors,
+          topics: TOPIC_NAMES.map((n) => ({
+            name: n,
+            id: store.topics[n],
+            hashscan: store.topics[n] ? topicHashscanUrl(net, store.topics[n] as string) : null,
+          })),
+        });
+      } catch (err) {
+        res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+      }
+    });
+
+    // GET /api/receipts — recent payments with Hashscan links.
+    app.get("/api/receipts", async (req: Request, res: Response) => {
+      try {
+        const limit = Math.min(Number(req.query.limit) || 12, 50);
+        const all = await getAllReceipts(net);
+        const recent = all.slice(-limit).reverse();
+        const base = topicHashscanUrl(net, getTopicId("RECEIPTS"));
+        res.json({
+          receiptsTopicHashscan: base,
+          receipts: recent.map((r) => ({
+            repo: r.repo,
+            prNumber: r.prNumber,
+            githubHandle: r.githubHandle,
+            account: r.hederaAccountId,
+            amountHbar: r.amountHbar,
+            label: r.label,
+            timestamp: r.timestamp,
+            transactionHashscan: `${hashscanBase(net)}/transaction/${encodeURIComponent(r.transactionId)}`,
+          })),
+        });
+      } catch (err) {
+        res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+      }
+    });
+
+    // POST /api/claim — the "Claim 10 HBAR" button. Cap- and rate-limited.
+    const claimLimiter = rateLimit({
+      windowMs: 60 * 60 * 1000,
+      max: 5,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { status: "skipped", reason: "Too many claims from this IP. Please wait a bit." },
+    });
+    app.post("/api/claim", claimLimiter, async (req: Request, res: Response) => {
+      try {
+        const account = String((req.body as { account?: string }).account ?? "").trim();
+        const result = await webClaim(
+          agent.client,
+          net,
+          agent.payerAccountId,
+          repo,
+          label,
+          account,
+        );
+        res.json(result);
+      } catch (err) {
+        res
+          .status(500)
+          .json({ status: "skipped", reason: err instanceof Error ? err.message : String(err) });
+      }
+    });
+  }
 
   // ─── GET /health ────────────────────────────────────────────────────────────
   app.get("/health", async (_req: Request, res: Response) => {
@@ -215,6 +315,11 @@ export function createWebhookServer(opts: WebhookServerOptions): Express {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }
   });
+
+  // ─── Static landing page (opt-in) ─────────────────────────────────────────────
+  if (opts.staticDir) {
+    app.use(express.static(opts.staticDir));
+  }
 
   return app;
 }
