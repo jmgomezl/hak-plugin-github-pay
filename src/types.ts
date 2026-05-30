@@ -21,6 +21,11 @@ export const TOPIC_MEMOS: Record<TopicName, string> = {
 // ─── Local store (store.json) ─────────────────────────────────────────────────
 export type Store = {
   topics: Record<TopicName, string | null>;
+  // Fast-path idempotency guard. The RECEIPTS topic is the durable source of
+  // truth, but the mirror node lags consensus by a few seconds; this local set
+  // of "repo#prNumber" keys closes the race for rapid webhook retries and
+  // survives restarts. Written synchronously the instant a payment settles.
+  paidPrs?: string[];
   lastOperation: {
     tool: string;
     timestamp: string;

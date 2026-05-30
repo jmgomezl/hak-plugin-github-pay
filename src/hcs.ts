@@ -39,6 +39,27 @@ export function recordOperation(tool: string, detail: string): void {
   saveStore(store);
 }
 
+// ─── Local fast-path idempotency guard (complements the RECEIPTS topic) ───────
+
+function prKey(repo: string, prNumber: number): string {
+  return `${repo}#${prNumber}`;
+}
+
+export function isPrPaidLocally(repo: string, prNumber: number): boolean {
+  const store = loadStore();
+  return (store.paidPrs ?? []).includes(prKey(repo, prNumber));
+}
+
+export function markPrPaidLocally(repo: string, prNumber: number): void {
+  const store = loadStore();
+  const key = prKey(repo, prNumber);
+  if (!store.paidPrs) store.paidPrs = [];
+  if (!store.paidPrs.includes(key)) {
+    store.paidPrs.push(key);
+    saveStore(store);
+  }
+}
+
 // ─── Topic provisioning ───────────────────────────────────────────────────────
 
 async function createTopic(client: Client, name: TopicName): Promise<string> {

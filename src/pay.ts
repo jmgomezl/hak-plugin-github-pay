@@ -5,7 +5,13 @@ import {
   AccountId,
 } from "@hiero-ledger/sdk";
 import { createHash } from "crypto";
-import { submitMessage, hashscanBase, recordOperation } from "./hcs.js";
+import {
+  submitMessage,
+  hashscanBase,
+  recordOperation,
+  isPrPaidLocally,
+  markPrPaidLocally,
+} from "./hcs.js";
 import {
   resolveContributor,
   resolvePolicyRule,
@@ -24,6 +30,11 @@ export type PayOnMergeInput = {
   prAuthor: string; // GitHub handle
   label: string;
 };
+
+// In-flight lock: guards two payOnMerge calls for the same PR that race past the
+// persisted guard before either has marked it (the check and the transfer are
+// separated by awaits). Single-process, complements the store.json guard.
+const inFlight = new Set<string>();
 
 export type PayOnMergeResult =
   | {
@@ -51,6 +62,28 @@ export async function payOnMerge(
   input: PayOnMergeInput,
   notify?: (r: Extract<PayOnMergeResult, { status: "paid" }>) => Promise<void>
 ): Promise<PayOnMergeResult> {
+  const lockKey = `${input.repo}#${input.prNumber}`;
+  if (inFlight.has(lockKey)) {
+    return {
+      status: "skipped",
+      reason: `A payment for ${lockKey} is already being processed (concurrent retry). No second payment.`,
+    };
+  }
+  inFlight.add(lockKey);
+  try {
+    return await payOnMergeInner(client, network, payerAccountId, input, notify);
+  } finally {
+    inFlight.delete(lockKey);
+  }
+}
+
+async function payOnMergeInner(
+  client: Client,
+  network: string,
+  payerAccountId: string,
+  input: PayOnMergeInput,
+  notify?: (r: Extract<PayOnMergeResult, { status: "paid" }>) => Promise<void>
+): Promise<PayOnMergeResult> {
   // 1. Policy lookup — what does this label pay?
   const rule = await resolvePolicyRule(network, input.repo, input.label);
   if (!rule) {
@@ -60,9 +93,21 @@ export async function payOnMerge(
     };
   }
 
-  // 2. Idempotency — has this PR already been paid? (webhook retries, double merge events)
+  // 2. Idempotency. Two layers:
+  //    (a) local guard — instant, closes the mirror-node lag window on rapid retries;
+  //    (b) RECEIPTS topic — durable source of truth across hosts/redeploys.
+  if (isPrPaidLocally(input.repo, input.prNumber)) {
+    const existing = await findReceiptForPr(network, input.repo, input.prNumber);
+    if (existing) return { status: "already_paid", receipt: existing };
+    // Sealed locally but mirror hasn't indexed the receipt yet — still a dup.
+    return {
+      status: "skipped",
+      reason: `PR ${input.repo}#${input.prNumber} was already paid in this deployment (receipt pending mirror indexing). No second payment.`,
+    };
+  }
   const existing = await findReceiptForPr(network, input.repo, input.prNumber);
   if (existing) {
+    markPrPaidLocally(input.repo, input.prNumber);
     return { status: "already_paid", receipt: existing };
   }
 
@@ -107,6 +152,10 @@ export async function payOnMerge(
   const submit = await tx.execute(client);
   await submit.getReceipt(client); // throws on failure
   const transactionId = submit.transactionId.toString();
+
+  // Mark paid locally the instant the transfer settles, before sealing the
+  // receipt — a concurrent retry now hits the local guard, never a 2nd transfer.
+  markPrPaidLocally(input.repo, input.prNumber);
 
   // 6. Seal the receipt on the RECEIPTS topic.
   const receipt: Receipt = {

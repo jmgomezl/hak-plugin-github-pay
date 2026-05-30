@@ -93,14 +93,26 @@ Point a repository webhook at `https://your-host/webhook`, content type `applica
 
 ## Live testnet topics
 
-> After your first `npm start`, paste the four Hashscan links the console prints here so reviewers can verify on-chain.
+These four topics are live on Hedera **testnet** and carry real messages from the end-to-end run below — verify on Hashscan:
 
 | Topic | ID | Hashscan |
 |-------|----|----------|
-| IDENTITIES | `0.0._______` | https://hashscan.io/testnet/topic/0.0._______ |
-| POLICIES   | `0.0._______` | https://hashscan.io/testnet/topic/0.0._______ |
-| RECEIPTS   | `0.0._______` | https://hashscan.io/testnet/topic/0.0._______ |
-| RELEASES   | `0.0._______` | https://hashscan.io/testnet/topic/0.0._______ |
+| IDENTITIES | `0.0.9095825` | https://hashscan.io/testnet/topic/0.0.9095825 |
+| POLICIES   | `0.0.9095826` | https://hashscan.io/testnet/topic/0.0.9095826 |
+| RECEIPTS   | `0.0.9095828` | https://hashscan.io/testnet/topic/0.0.9095828 |
+| RELEASES   | `0.0.9095829` | https://hashscan.io/testnet/topic/0.0.9095829 |
+
+### Verified end-to-end run (testnet)
+
+A full flow executed on-chain against these topics:
+
+- **register_contributor** → `octo-demo` → `0.0.9095861` sealed on IDENTITIES (seq 2)
+- **set_payment_policy** `bounty-50 → 50 HBAR` + **set_payment_cap** `500/mo, 200/contributor` on POLICIES
+- **pay_on_merge** PR #42 → **50 HBAR transferred** · [transaction](https://hashscan.io/testnet/transaction/0.0.7231440%401780110787.382134615) · receipt sealed on RECEIPTS (seq 3)
+- **idempotency** — replaying PR #42 returned `already_paid`, recipient balance stayed at exactly **50 ℏ** (no double payment)
+- **seal_release_provenance** `v1.0.0` → SHA-256 of `package.json` sealed on RELEASES (seq 1)
+
+The payer account for the run is `0.0.7231440`.
 
 ---
 
