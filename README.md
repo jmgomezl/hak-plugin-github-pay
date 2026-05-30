@@ -13,6 +13,16 @@
 
 > *Live testnet run: register → policy + cap → **PR merged → 25 HBAR paid** → a retry is blocked by idempotency → contributor balance is exactly 25 ℏ. Every step is sealed on Hedera.*
 
+## 🔴 Try the live demo
+
+Open a PR at **[jmgomezl/github-pay-demo](https://github.com/jmgomezl/github-pay-demo)** and an AI agent pays you **10 testnet HBAR** automatically — no human in the loop. The deployed server is live:
+
+- **Endpoint:** [`https://github-pay.aivylabs.xyz/health`](https://github-pay.aivylabs.xyz/health) (per-topic connectivity)
+- **Self-serve flow:** open a PR with your Hedera account in the body → auto-registered on IDENTITIES → auto-merged → **10 HBAR paid + receipt sealed on Hedera**, in ~40s.
+- **Caps make it safe:** 10 HBAR/contributor + 500 HBAR/month — the pool is undrainable, so the interesting part is watching the controls hold under self-serve load.
+
+---
+
 A [HAK v4](https://github.com/hashgraph/hedera-agent-kit) (hedera-agent-kit) plugin built for **Hedera AI Agent Bounty — Week 2 (Enterprise Agent + Plugin)**. It turns the GitHub merge button into a payment rail: a contributor registers their Hedera account once, a repo admin sets a label→HBAR policy with a spending cap, and from then on every merged PR carrying that label pays out automatically, idempotently, and with a tamper-evident receipt on-chain. No database — the HCS topics *are* the source of truth.
 
 ---
