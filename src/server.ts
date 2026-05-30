@@ -83,12 +83,17 @@ export function createWebhookServer(opts: WebhookServerOptions): Express {
   if (opts.demoApi) {
     const { repo, label } = opts.demoApi;
     const net = agent.network;
+    // Only surface receipts a judge can actually verify: real PRs on the demo
+    // repo + web-button claims. (Internal test receipts reference PR numbers
+    // that don't exist, so their PR links would 404.)
+    const isDemoReceipt = (r: { repo: string; githubHandle: string }) =>
+      r.repo === repo || r.githubHandle === "web-demo";
 
     // GET /api/stats — pool balance, totals, topics (for the landing page).
     app.get("/api/stats", async (_req: Request, res: Response) => {
       try {
         const store = loadStore();
-        const receipts = await getAllReceipts(net);
+        const receipts = (await getAllReceipts(net)).filter(isDemoReceipt);
         const totalPaid = receipts.reduce((s, r) => s + r.amountHbar, 0);
         const contributors = new Set(receipts.map((r) => r.hederaAccountId)).size;
         let poolBalance: number | null = null;
@@ -118,7 +123,7 @@ export function createWebhookServer(opts: WebhookServerOptions): Express {
     app.get("/api/receipts", async (req: Request, res: Response) => {
       try {
         const limit = Math.min(Number(req.query.limit) || 12, 50);
-        const all = await getAllReceipts(net);
+        const all = (await getAllReceipts(net)).filter(isDemoReceipt);
         const recent = all.slice(-limit).reverse();
         const base = topicHashscanUrl(net, getTopicId("RECEIPTS"));
         res.json({
