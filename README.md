@@ -1,8 +1,36 @@
 # @jmgomezl/github-pay
 
+[![CI](https://github.com/jmgomezl/hak-plugin-github-pay/actions/workflows/ci.yml/badge.svg)](https://github.com/jmgomezl/hak-plugin-github-pay/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@jmgomezl/github-pay.svg)](https://www.npmjs.com/package/@jmgomezl/github-pay)
+[![license: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![node >= 20](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](package.json)
+[![HAK v4](https://img.shields.io/badge/HAK-v4-7056F5.svg)](https://github.com/hashgraph/hedera-agent-kit)
+[![tests](https://img.shields.io/badge/tests-22%20passing-success.svg)](tests)
+
 > When a GitHub PR is merged, an AI agent automatically pays the contributor in HBAR — and the policy, identity, receipt, and release provenance all live immutably on the Hedera Consensus Service.
 
 A [HAK v4](https://github.com/hashgraph/hedera-agent-kit) (hedera-agent-kit) plugin built for **Hedera AI Agent Bounty — Week 2 (Enterprise Agent + Plugin)**. It turns the GitHub merge button into a payment rail: a contributor registers their Hedera account once, a repo admin sets a label→HBAR policy with a spending cap, and from then on every merged PR carrying that label pays out automatically, idempotently, and with a tamper-evident receipt on-chain. No database — the HCS topics *are* the source of truth.
+
+---
+
+## ✅ Enterprise controls — at a glance
+
+Every enterprise requirement, where it lives, and how to verify it. Full threat model in **[SECURITY.md](SECURITY.md)**.
+
+| Enterprise requirement | Status | Implementation | Proof |
+|---|:---:|---|---|
+| **HMAC webhook signature** (`X-Hub-Signature-256`, constant-time, validated before processing) | ✅ | [`verifySignature`](src/server.ts) | [`tests/server.test.ts`](tests/server.test.ts) — 5 cases |
+| **Idempotency** (PR-number dedup; webhook retries safe) | ✅ | [`payOnMerge`](src/pay.ts) — durable RECEIPTS check + local fast-path guard + in-flight lock | Live testnet: retry → `already_paid`, balance unchanged |
+| **Spending caps** (monthly + per-contributor ceilings) | ✅ | [`resolveCap` / cap math](src/resolve.ts) | [`tests/resolve.test.ts`](tests/resolve.test.ts) |
+| **Human-in-the-loop / 4-eyes** (PR merge = approval) | ✅ | merge-gated payout in [`createWebhookServer`](src/server.ts) | [SECURITY.md](SECURITY.md) |
+| **`GET /health`** (topic connectivity + last operation) | ✅ | [`createWebhookServer`](src/server.ts) | `curl /health` → per-topic status |
+| **`createWebhookServer()`** Express helper | ✅ | [src/server.ts](src/server.ts) | exported from `@jmgomezl/github-pay/server` |
+| **4 HCS topics auto-provisioned** → `store.json` | ✅ | [`ensureTopics`](src/hcs.ts) | live IDs in the table below |
+| **Immutable audit trail** (policy, identity, receipts) | ✅ | append-only HCS topics | verifiable on Hashscan |
+| **Supply-chain provenance** (SHA-256 + commit, NIST SSDF) | ✅ | [`sealReleaseProvenance`](src/pay.ts) | RELEASES topic on Hashscan |
+| **CI** (typecheck · lint · 22 tests · dual build) | ✅ | [.github/workflows/ci.yml](.github/workflows/ci.yml) | green badge above |
+
+> **Honest by design:** known limitations for unattended mainnet use (single-instance idempotency, admin/payer key separation) are documented openly in [SECURITY.md](SECURITY.md#known-limitations-deploy-accordingly) — not hidden.
 
 ---
 

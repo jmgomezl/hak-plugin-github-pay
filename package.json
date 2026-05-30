@@ -55,6 +55,7 @@
     ".env.example",
     "README.md",
     "AGENTS.md",
+    "SECURITY.md",
     "docs",
     "LICENSE"
   ],
