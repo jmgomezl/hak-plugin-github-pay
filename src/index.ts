@@ -1,75 +1,89 @@
-import "dotenv/config";
-import * as readline from "readline";
-import { createGithubPayAgent, initTopics, runAgentTurn } from "./agent.js";
-import { createWebhookServer } from "./server.js";
-import { topicHashscanUrl } from "./hcs.js";
+// @jmgomezl/github-pay — public library surface.
+//
+// The default export is the HAK v4 plugin; everything a host needs to embed,
+// configure, or drive the plugin is re-exported here.
 
-function getEnv(key: string): string {
-  const val = process.env[key];
-  if (!val) throw new Error(`Missing environment variable: ${key}`);
-  return val;
-}
+export { githubPayPlugin, githubPayPluginToolNames, default } from "./plugin.js";
 
-async function main() {
-  const network = process.env.HEDERA_NETWORK ?? "testnet";
-  const agent = createGithubPayAgent({
-    accountId: getEnv("HEDERA_ACCOUNT_ID"),
-    privateKey: getEnv("HEDERA_PRIVATE_KEY"),
-    network,
-    geminiApiKey: getEnv("GEMINI_API_KEY"),
-    githubToken: process.env.GITHUB_TOKEN || undefined,
-    slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || undefined,
-  });
+// Configuration
+export { resolveGithubPayConfig, requirePayerAccount } from "./config.js";
+export type { GithubPayConfig } from "./config.js";
 
-  console.log("⛓  github-pay — provisioning HCS topics…");
-  const topics = await initTopics(agent);
-  for (const [name, id] of Object.entries(topics)) {
-    console.log(`   ${name.padEnd(10)} ${id}  ${topicHashscanUrl(network, id)}`);
-  }
+// Networks & topic metadata
+export {
+  NETWORK_DEFAULTS,
+  GITHUB_PAY_MAINNET,
+  GITHUB_PAY_TESTNET,
+  TOPIC_NAMES,
+  TOPIC_MEMOS,
+  hashscanBase,
+  mirrorBase,
+  topicHashscanUrl,
+  transactionHashscanUrl,
+} from "./networks.js";
+export type { HederaNetwork, GithubPayNetworkDefaults } from "./networks.js";
 
-  // Start the webhook server (HMAC-validated GitHub events + /health).
-  const port = Number(process.env.PORT ?? 3000);
-  const server = createWebhookServer({
-    agent,
-    webhookSecret: getEnv("GITHUB_WEBHOOK_SECRET"),
-    githubToken: process.env.GITHUB_TOKEN || undefined,
-    slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || undefined,
-  });
-  server.listen(port, () => {
-    console.log(`\n🌐 webhook server listening on http://localhost:${port}`);
-    console.log(`   POST /webhook   (GitHub events — HMAC validated)`);
-    console.log(`   GET  /health    (topic connectivity + last operation)\n`);
-  });
+// Tool classes & singletons
+export { GithubPayTool } from "./tools/base.js";
+export { RegisterContributorTool, registerContributorTool } from "./tools/registerContributor.js";
+export { SetPaymentPolicyTool, setPaymentPolicyTool } from "./tools/setPaymentPolicy.js";
+export { SetPaymentCapTool, setPaymentCapTool } from "./tools/setPaymentCap.js";
+export { PayOnMergeTool, payOnMergeTool } from "./tools/payOnMerge.js";
+export {
+  QueryContributorPaymentsTool,
+  queryContributorPaymentsTool,
+} from "./tools/queryContributorPayments.js";
+export {
+  SealReleaseProvenanceTool,
+  sealReleaseProvenanceTool,
+} from "./tools/sealReleaseProvenance.js";
+export { QueryTeamSummaryTool, queryTeamSummaryTool } from "./tools/queryTeamSummary.js";
 
-  // Optional interactive agent REPL (skip with NO_REPL=1, e.g. under PM2).
-  if (process.env.NO_REPL === "1" || !process.stdin.isTTY) {
-    console.log("Running headless (no REPL). Webhook server is live.");
-    return;
-  }
+// Core domain logic (reusable outside the agent loop, e.g. the webhook server)
+export {
+  payOnMerge,
+  sealReleaseProvenance,
+  notifySlack,
+  type PayOnMergeInput,
+  type PayOnMergeResult,
+  type ReleaseInput,
+} from "./pay.js";
+export {
+  loadStore,
+  saveStore,
+  ensureTopics,
+  getTopicId,
+  submitMessage,
+  readTopicMessages,
+  topicMessageCount,
+} from "./hcs.js";
+export {
+  resolveContributor,
+  resolvePolicyRule,
+  resolveCap,
+  getAllReceipts,
+  findReceiptForPr,
+} from "./resolve.js";
+export { toCsv } from "./csv.js";
 
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  console.log("Type a request for the agent (e.g. \"register @octocat as 0.0.1234\"), or 'exit'.\n");
-  const ask = () =>
-    rl.question("github-pay > ", async (line) => {
-      const input = line.trim();
-      if (!input) return ask();
-      if (input.toLowerCase() === "exit") return rl.close();
-      try {
-        const reply = await runAgentTurn(agent, input);
-        console.log(`\n${reply}\n`);
-      } catch (err) {
-        console.error("Error:", err instanceof Error ? err.message : err);
-      }
-      ask();
-    });
-  rl.on("close", () => {
-    console.log("\nbye.");
-    process.exit(0);
-  });
-  ask();
-}
+// HCS payload & store types
+export type {
+  TopicName,
+  Store,
+  IdentityRecord,
+  PolicyRule,
+  PaymentCap,
+  Receipt,
+  ReleaseProvenance,
+  SealResult,
+} from "./types.js";
 
-main().catch((err) => {
-  console.error("Fatal error:", err);
-  process.exit(1);
-});
+// App helpers (webhook server + agent loop)
+export { createWebhookServer, verifySignature } from "./server.js";
+export type { WebhookServerOptions } from "./server.js";
+export {
+  createGithubPayAgent,
+  initTopics,
+  runAgentTurn,
+  type GithubPayAgent,
+} from "./agent.js";

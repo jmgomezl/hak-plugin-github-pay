@@ -1,15 +1,16 @@
-import { HederaAgentAPI, type Context, type Tool } from "@hashgraph/hedera-agent-kit";
-import { Client, PrivateKey, AccountId } from "@hiero-ledger/sdk";
 import {
-  GoogleGenerativeAI,
-  SchemaType,
   type FunctionDeclaration,
   type FunctionDeclarationSchema,
+  GoogleGenerativeAI,
   type Schema,
+  SchemaType,
 } from "@google/generative-ai";
+import { type Context, HederaAgentAPI, type Tool } from "@hashgraph/hedera-agent-kit";
+import { AccountId, Client, PrivateKey } from "@hiero-ledger/sdk";
 import { z } from "zod";
-import { githubPayPlugin, type PluginConfig } from "./plugin/githubPayPlugin.js";
+import type { GithubPayConfig } from "./config.js";
 import { ensureTopics } from "./hcs.js";
+import { githubPayPlugin } from "./plugin.js";
 
 export type GithubPayAgent = {
   client: Client;
@@ -35,22 +36,19 @@ export function createGithubPayAgent(opts: {
   githubToken?: string;
   slackWebhookUrl?: string;
 }): GithubPayAgent {
-  const client =
-    opts.network === "mainnet" ? Client.forMainnet() : Client.forTestnet();
+  const client = opts.network === "mainnet" ? Client.forMainnet() : Client.forTestnet();
   client.setOperator(AccountId.fromString(opts.accountId), parseKey(opts.privateKey));
 
-  const context: Context = { accountId: opts.accountId };
-
-  const cfg: PluginConfig = {
+  // The tools resolve their config from the HAK Context (resolveGithubPayConfig).
+  const githubPay: GithubPayConfig = {
     network: opts.network,
     payerAccountId: opts.accountId,
-    geminiApiKey: opts.geminiApiKey,
     githubToken: opts.githubToken,
     slackWebhookUrl: opts.slackWebhookUrl,
   };
+  const context = { accountId: opts.accountId, config: { githubPay } } as Context;
 
-  const plugin = githubPayPlugin(cfg);
-  const tools = plugin.tools(context);
+  const tools = githubPayPlugin.tools(context);
   const api = new HederaAgentAPI(client, context, tools);
 
   return {
@@ -112,8 +110,7 @@ function zodObjectToSchema(obj: z.ZodObject<z.ZodRawShape>, description?: string
   const required: string[] = [];
   for (const [key, value] of Object.entries(shape)) {
     properties[key] = zodToGeminiSchema(value as z.ZodTypeAny);
-    const isOptional =
-      value instanceof z.ZodOptional || value instanceof z.ZodDefault;
+    const isOptional = value instanceof z.ZodOptional || value instanceof z.ZodDefault;
     if (!isOptional) required.push(key);
   }
   return {
@@ -126,10 +123,12 @@ function zodObjectToSchema(obj: z.ZodObject<z.ZodRawShape>, description?: string
 
 function toFunctionDeclaration(tool: Tool): FunctionDeclaration {
   return {
-    name: tool.name,
+    // Gemini function names must be alphanumeric/underscore — use the snake-case
+    // method id, not the human-readable `name`.
+    name: tool.method,
     description: tool.description,
     parameters: zodObjectToSchema(
-      tool.parameters as z.ZodObject<z.ZodRawShape>
+      tool.parameters as z.ZodObject<z.ZodRawShape>,
     ) as FunctionDeclarationSchema,
   };
 }
@@ -156,7 +155,7 @@ Rules:
 export async function runAgentTurn(
   agent: GithubPayAgent,
   userMessage: string,
-  maxSteps = 6
+  maxSteps = 6,
 ): Promise<string> {
   const genAI = new GoogleGenerativeAI(agent.geminiApiKey);
   const model = genAI.getGenerativeModel({
@@ -176,7 +175,7 @@ export async function runAgentTurn(
 
     const responses = [];
     for (const call of calls) {
-      const tool = agent.tools.find((t) => t.name === call.name);
+      const tool = agent.tools.find((t) => t.method === call.name);
       let output: unknown;
       if (!tool) {
         output = { error: `Unknown tool: ${call.name}` };
@@ -190,7 +189,8 @@ export async function runAgentTurn(
       responses.push({
         functionResponse: {
           name: call.name,
-          response: typeof output === "object" && output !== null ? (output as object) : { result: output },
+          response:
+            typeof output === "object" && output !== null ? (output as object) : { result: output },
         },
       });
     }

@@ -1,25 +1,20 @@
+import { createHash } from "node:crypto";
+import { AccountId, type Client, Hbar, TransferTransaction } from "@hiero-ledger/sdk";
 import {
-  Client,
-  TransferTransaction,
-  Hbar,
-  AccountId,
-} from "@hiero-ledger/sdk";
-import { createHash } from "crypto";
-import {
-  submitMessage,
   hashscanBase,
-  recordOperation,
   isPrPaidLocally,
   markPrPaidLocally,
+  recordOperation,
+  submitMessage,
 } from "./hcs.js";
 import {
+  contributorMonthlySpend,
+  findReceiptForPr,
+  getAllReceipts,
+  monthlySpend,
+  resolveCap,
   resolveContributor,
   resolvePolicyRule,
-  resolveCap,
-  getAllReceipts,
-  findReceiptForPr,
-  monthlySpend,
-  contributorMonthlySpend,
 } from "./resolve.js";
 import type { Receipt, ReleaseProvenance } from "./types.js";
 
@@ -60,7 +55,7 @@ export async function payOnMerge(
   network: string,
   payerAccountId: string,
   input: PayOnMergeInput,
-  notify?: (r: Extract<PayOnMergeResult, { status: "paid" }>) => Promise<void>
+  notify?: (r: Extract<PayOnMergeResult, { status: "paid" }>) => Promise<void>,
 ): Promise<PayOnMergeResult> {
   const lockKey = `${input.repo}#${input.prNumber}`;
   if (inFlight.has(lockKey)) {
@@ -82,7 +77,7 @@ async function payOnMergeInner(
   network: string,
   payerAccountId: string,
   input: PayOnMergeInput,
-  notify?: (r: Extract<PayOnMergeResult, { status: "paid" }>) => Promise<void>
+  notify?: (r: Extract<PayOnMergeResult, { status: "paid" }>) => Promise<void>,
 ): Promise<PayOnMergeResult> {
   // 1. Policy lookup — what does this label pay?
   const rule = await resolvePolicyRule(network, input.repo, input.label);
@@ -171,7 +166,10 @@ async function payOnMergeInner(
     timestamp: new Date().toISOString(),
   };
   const seal = await submitMessage(client, network, "RECEIPTS", receipt);
-  recordOperation("pay_on_merge", `${input.repo}#${input.prNumber} → ${rule.amountHbar} HBAR to ${account}`);
+  recordOperation(
+    "pay_on_merge",
+    `${input.repo}#${input.prNumber} → ${rule.amountHbar} HBAR to ${account}`,
+  );
 
   const result: Extract<PayOnMergeResult, { status: "paid" }> = {
     status: "paid",
@@ -206,15 +204,15 @@ export async function sealReleaseProvenance(
   network: string,
   payerAccountId: string,
   input: ReleaseInput,
-  githubToken?: string
+  githubToken?: string,
 ): Promise<{ provenance: ReleaseProvenance; sequenceNumber: string; hashscanUrl: string }> {
   const assetHashes: ReleaseProvenance["assetHashes"] = [];
 
   for (const url of input.assetUrls) {
     const headers: Record<string, string> = { "User-Agent": "github-pay" };
     // GitHub release asset API URLs need the octet-stream accept header to get bytes.
-    headers["Accept"] = "application/octet-stream";
-    if (githubToken) headers["Authorization"] = `Bearer ${githubToken}`;
+    headers.Accept = "application/octet-stream";
+    if (githubToken) headers.Authorization = `Bearer ${githubToken}`;
 
     const res = await fetch(url, { headers, redirect: "follow" });
     if (!res.ok) throw new Error(`Failed to fetch asset ${url}: ${res.status}`);
@@ -235,7 +233,10 @@ export async function sealReleaseProvenance(
   };
 
   const seal = await submitMessage(client, network, "RELEASES", provenance);
-  recordOperation("seal_release_provenance", `${input.repo}@${input.tag} (${assetHashes.length} assets)`);
+  recordOperation(
+    "seal_release_provenance",
+    `${input.repo}@${input.tag} (${assetHashes.length} assets)`,
+  );
 
   return {
     provenance,
@@ -248,7 +249,7 @@ export async function sealReleaseProvenance(
 
 export async function notifySlack(
   webhookUrl: string,
-  paid: Extract<PayOnMergeResult, { status: "paid" }>
+  paid: Extract<PayOnMergeResult, { status: "paid" }>,
 ): Promise<void> {
   const r = paid.receipt;
   const text = [

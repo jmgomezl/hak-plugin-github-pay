@@ -1,17 +1,21 @@
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
-  Client,
+  type Client,
   TopicCreateTransaction,
   TopicMessageSubmitTransaction,
 } from "@hiero-ledger/sdk";
-import { readFileSync, writeFileSync, existsSync } from "fs";
-import { resolve } from "path";
 import {
-  TOPIC_NAMES,
   TOPIC_MEMOS,
-  type Store,
-  type TopicName,
-  type SealResult,
-} from "./types.js";
+  TOPIC_NAMES,
+  hashscanBase,
+  mirrorBase,
+  topicHashscanUrl,
+} from "./networks.js";
+import type { SealResult, Store, TopicName } from "./types.js";
+
+// Re-exported for modules that import network helpers from hcs.
+export { hashscanBase, mirrorBase, topicHashscanUrl } from "./networks.js";
 
 const STORE_PATH = resolve(process.cwd(), "store.json");
 
@@ -65,7 +69,9 @@ export function markPrPaidLocally(repo: string, prNumber: number): void {
 async function createTopic(client: Client, name: TopicName): Promise<string> {
   const tx = new TopicCreateTransaction().setTopicMemo(TOPIC_MEMOS[name]);
   const receipt = await (await tx.execute(client)).getReceipt(client);
-  return receipt.topicId!.toString();
+  const topicId = receipt.topicId;
+  if (!topicId) throw new Error(`Topic creation for ${name} returned no topic id`);
+  return topicId.toString();
 }
 
 /**
@@ -73,9 +79,7 @@ async function createTopic(client: Client, name: TopicName): Promise<string> {
  * store.json is created on-chain and persisted. Idempotent: existing topics are
  * left untouched. Returns the resolved topic map.
  */
-export async function ensureTopics(
-  client: Client
-): Promise<Record<TopicName, string>> {
+export async function ensureTopics(client: Client): Promise<Record<TopicName, string>> {
   const store = loadStore();
   let mutated = false;
 
@@ -95,28 +99,10 @@ export function getTopicId(name: TopicName): string {
   const id = store.topics[name];
   if (!id) {
     throw new Error(
-      `HCS topic ${name} has not been provisioned yet. Start the agent/server once to run ensureTopics().`
+      `HCS topic ${name} has not been provisioned yet. Start the agent/server once to run ensureTopics().`,
     );
   }
   return id;
-}
-
-// ─── Hashscan / mirror node helpers ───────────────────────────────────────────
-
-export function hashscanBase(network: string): string {
-  return network === "mainnet"
-    ? "https://hashscan.io/mainnet"
-    : "https://hashscan.io/testnet";
-}
-
-export function mirrorBase(network: string): string {
-  return network === "mainnet"
-    ? "https://mainnet.mirrornode.hedera.com"
-    : "https://testnet.mirrornode.hedera.com";
-}
-
-export function topicHashscanUrl(network: string, topicId: string): string {
-  return `${hashscanBase(network)}/topic/${topicId}`;
 }
 
 // ─── Write a JSON message to a topic ──────────────────────────────────────────
@@ -125,7 +111,7 @@ export async function submitMessage(
   client: Client,
   network: string,
   topicName: TopicName,
-  payload: unknown
+  payload: unknown,
 ): Promise<SealResult> {
   const topicId = getTopicId(topicName);
   const tx = new TopicMessageSubmitTransaction()
@@ -162,12 +148,11 @@ type MirrorMsg = {
  */
 export async function readTopicMessages<T = Record<string, unknown>>(
   network: string,
-  topicId: string
+  topicId: string,
 ): Promise<Array<T & { sequenceNumber: number; consensusTimestamp: string }>> {
   const out: Array<T & { sequenceNumber: number; consensusTimestamp: string }> = [];
-  let url:
-    | string
-    | null = `${mirrorBase(network)}/api/v1/topics/${topicId}/messages?limit=100&order=asc`;
+  let url: string | null =
+    `${mirrorBase(network)}/api/v1/topics/${topicId}/messages?limit=100&order=asc`;
 
   // Group chunks across the full paginated result before reassembling.
   const groups = new Map<string, MirrorMsg[]>();
@@ -182,7 +167,7 @@ export async function readTopicMessages<T = Record<string, unknown>>(
         ? `${m.chunk_info.initial_transaction_id.account_id}-${m.chunk_info.initial_transaction_id.transaction_valid_start}`
         : `solo-${m.sequence_number}`;
       if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push(m);
+      groups.get(key)?.push(m);
     }
 
     url = data.links?.next ? `${mirrorBase(network)}${data.links.next}` : null;
@@ -211,10 +196,7 @@ export async function readTopicMessages<T = Record<string, unknown>>(
  * Lightweight connectivity probe used by GET /health: returns the number of
  * messages currently visible on a topic, or throws on mirror error.
  */
-export async function topicMessageCount(
-  network: string,
-  topicId: string
-): Promise<number> {
+export async function topicMessageCount(network: string, topicId: string): Promise<number> {
   const url = `${mirrorBase(network)}/api/v1/topics/${topicId}/messages?limit=1&order=desc`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Mirror node error: ${res.status}`);

@@ -1,19 +1,18 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: [
-    "src/index.ts",
-    "src/server.ts",
-    "src/plugin/githubPayPlugin.ts",
-  ],
-  format: ["esm"],
-  target: "node20",
-  outDir: "dist/esm",
-  outExtension: () => ({ js: ".mjs" }),
-  splitting: false,
+  entry: {
+    index: "src/index.ts",
+    plugin: "src/plugin.ts",
+    server: "src/server.ts",
+    main: "src/main.ts",
+  },
+  format: ["esm", "cjs"],
+  dts: true,
   sourcemap: true,
   clean: true,
-  dts: true,
+  target: "node20",
+  treeshake: true,
   external: [
     "@hashgraph/hedera-agent-kit",
     "@hiero-ledger/sdk",

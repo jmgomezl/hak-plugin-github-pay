@@ -1,9 +1,10 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import express, { type Express, type Request, type Response } from "express";
-import { createHmac, timingSafeEqual } from "crypto";
 import type { GithubPayAgent } from "./agent.js";
-import { payOnMerge, sealReleaseProvenance, notifySlack, type PayOnMergeResult } from "./pay.js";
-import { loadStore, topicMessageCount, mirrorBase } from "./hcs.js";
-import { TOPIC_NAMES, type TopicName } from "./types.js";
+import { loadStore, topicMessageCount } from "./hcs.js";
+import { TOPIC_NAMES, mirrorBase } from "./networks.js";
+import { type PayOnMergeResult, notifySlack, payOnMerge, sealReleaseProvenance } from "./pay.js";
+import type { TopicName } from "./types.js";
 
 export type WebhookServerOptions = {
   agent: GithubPayAgent;
@@ -18,9 +19,13 @@ export type WebhookServerOptions = {
  * Verify GitHub's HMAC-SHA256 signature against the raw request body.
  * Returns true only on a constant-time match.
  */
-export function verifySignature(secret: string, rawBody: Buffer, signatureHeader?: string): boolean {
+export function verifySignature(
+  secret: string,
+  rawBody: Buffer,
+  signatureHeader?: string,
+): boolean {
   if (!signatureHeader) return false;
-  const expected = "sha256=" + createHmac("sha256", secret).update(rawBody).digest("hex");
+  const expected = `sha256=${createHmac("sha256", secret).update(rawBody).digest("hex")}`;
   const a = Buffer.from(expected);
   const b = Buffer.from(signatureHeader);
   if (a.length !== b.length) return false;
@@ -47,13 +52,16 @@ export function createWebhookServer(opts: WebhookServerOptions): Express {
       verify: (req, _res, buf) => {
         (req as Request & { rawBody?: Buffer }).rawBody = buf;
       },
-    })
+    }),
   );
 
   // ─── GET /health ────────────────────────────────────────────────────────────
   app.get("/health", async (_req: Request, res: Response) => {
     const store = loadStore();
-    const topicStatus: Record<string, { id: string | null; messages?: number; ok: boolean; error?: string }> = {};
+    const topicStatus: Record<
+      string,
+      { id: string | null; messages?: number; ok: boolean; error?: string }
+    > = {};
     let allOk = true;
 
     await Promise.all(
@@ -68,10 +76,14 @@ export function createWebhookServer(opts: WebhookServerOptions): Express {
           const count = await topicMessageCount(agent.network, id);
           topicStatus[name] = { id, messages: count, ok: true };
         } catch (err) {
-          topicStatus[name] = { id, ok: false, error: err instanceof Error ? err.message : String(err) };
+          topicStatus[name] = {
+            id,
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+          };
           allOk = false;
         }
-      })
+      }),
     );
 
     res.status(allOk ? 200 : 503).json({
@@ -112,8 +124,9 @@ export function createWebhookServer(opts: WebhookServerOptions): Express {
         const repo: string = payload.repository?.full_name;
         const labels = paymentLabels(pr);
 
-        const notify = opts.slackWebhookUrl
-          ? (paid: Extract<PayOnMergeResult, { status: "paid" }>) => notifySlack(opts.slackWebhookUrl!, paid)
+        const slackUrl = opts.slackWebhookUrl;
+        const notify = slackUrl
+          ? (paid: Extract<PayOnMergeResult, { status: "paid" }>) => notifySlack(slackUrl, paid)
           : undefined;
 
         const results: PayOnMergeResult[] = [];
@@ -129,7 +142,7 @@ export function createWebhookServer(opts: WebhookServerOptions): Express {
               prAuthor: pr.user?.login,
               label,
             },
-            notify
+            notify,
           );
           results.push(result);
           // Once a label actually pays (or was already paid), stop — one PR pays once.
@@ -143,7 +156,9 @@ export function createWebhookServer(opts: WebhookServerOptions): Express {
       if (event === "release" && payload.action === "published") {
         const rel = payload.release;
         const repo: string = payload.repository?.full_name;
-        const assetUrls: string[] = (rel.assets ?? []).map((a: { browser_download_url: string }) => a.browser_download_url);
+        const assetUrls: string[] = (rel.assets ?? []).map(
+          (a: { browser_download_url: string }) => a.browser_download_url,
+        );
 
         const result = await sealReleaseProvenance(
           agent.client,
@@ -155,7 +170,7 @@ export function createWebhookServer(opts: WebhookServerOptions): Express {
             commitSha: rel.target_commitish,
             assetUrls,
           },
-          opts.githubToken
+          opts.githubToken,
         );
         res.json({ ok: true, event, provenance: result });
         return;

@@ -4,20 +4,6 @@
 // reading the same topic.
 export type TopicName = "IDENTITIES" | "POLICIES" | "RECEIPTS" | "RELEASES";
 
-export const TOPIC_NAMES: TopicName[] = [
-  "IDENTITIES",
-  "POLICIES",
-  "RECEIPTS",
-  "RELEASES",
-];
-
-export const TOPIC_MEMOS: Record<TopicName, string> = {
-  IDENTITIES: "github-pay :: IDENTITIES — public GitHub handle ↔ Hedera account registry",
-  POLICIES: "github-pay :: POLICIES — immutable payment rules & spending caps",
-  RECEIPTS: "github-pay :: RECEIPTS — sealed bounty payment receipts",
-  RELEASES: "github-pay :: RELEASES — software release provenance (SHA-256 + commit)",
-};
-
 // ─── Local store (store.json) ─────────────────────────────────────────────────
 export type Store = {
   topics: Record<TopicName, string | null>;

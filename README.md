@@ -75,15 +75,15 @@ The agent (Gemini 2.5 Flash, function-calling) maps each request to the right to
 ### Or use the plugin directly in your own HAK agent
 
 ```ts
-import { githubPayPlugin } from "@jmgomezl/github-pay/plugin";
+import { githubPayPlugin } from "@jmgomezl/github-pay";
 
-const plugin = githubPayPlugin({
-  network: "testnet",
-  payerAccountId: "0.0.1234",
-  geminiApiKey: process.env.GEMINI_API_KEY!,
-});
-// plugin.tools(context) → 7 BaseTool instances, ready for HederaAgentAPI
+// The plugin reads its config from the HAK Context — no factory args.
+const context = { accountId: "0.0.1234", config: { githubPay: { network: "testnet" } } };
+const tools = githubPayPlugin.tools(context);
+// → 7 BaseTool instances (methods namespaced github_pay_*), ready for HederaAgentAPI
 ```
+
+See [docs/CONFIGURATION.md](docs/CONFIGURATION.md), [docs/TOOLS.md](docs/TOOLS.md), and [docs/EXAMPLES.md](docs/EXAMPLES.md) for the full API.
 
 ### Wire up the GitHub webhook
 
