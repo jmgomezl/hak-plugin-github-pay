@@ -67,7 +67,8 @@
     "lint": "biome check .",
     "format": "biome format . --write",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "demo": "node scripts/demo.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

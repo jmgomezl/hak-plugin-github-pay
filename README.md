@@ -9,6 +9,10 @@
 
 > When a GitHub PR is merged, an AI agent automatically pays the contributor in HBAR — and the policy, identity, receipt, and release provenance all live immutably on the Hedera Consensus Service.
 
+![github-pay live testnet demo](demo.gif)
+
+> *Live testnet run: register → policy + cap → **PR merged → 25 HBAR paid** → a retry is blocked by idempotency → contributor balance is exactly 25 ℏ. Every step is sealed on Hedera.*
+
 A [HAK v4](https://github.com/hashgraph/hedera-agent-kit) (hedera-agent-kit) plugin built for **Hedera AI Agent Bounty — Week 2 (Enterprise Agent + Plugin)**. It turns the GitHub merge button into a payment rail: a contributor registers their Hedera account once, a repo admin sets a label→HBAR policy with a spending cap, and from then on every merged PR carrying that label pays out automatically, idempotently, and with a tamper-evident receipt on-chain. No database — the HCS topics *are* the source of truth.
 
 ---
