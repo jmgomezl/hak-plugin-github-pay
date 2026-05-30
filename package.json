@@ -1,0 +1,76 @@
+{
+  "name": "@hak-plugins/github-pay",
+  "version": "1.0.0",
+  "description": "HAK v4 plugin: when a GitHub PR is merged, an AI agent automatically pays the contributor in HBAR. Policy, identity, and receipts live immutably on Hedera Consensus Service.",
+  "type": "module",
+  "main": "./dist/esm/index.mjs",
+  "module": "./dist/esm/index.mjs",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.mjs"
+    },
+    "./plugin": {
+      "types": "./dist/esm/plugin/githubPayPlugin.d.ts",
+      "import": "./dist/esm/plugin/githubPayPlugin.mjs"
+    },
+    "./server": {
+      "types": "./dist/esm/server.d.ts",
+      "import": "./dist/esm/server.mjs"
+    }
+  },
+  "files": [
+    "dist",
+    "store.template.json",
+    ".env.example",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/esm/index.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "hedera",
+    "hak",
+    "hedera-agent-kit",
+    "hcs",
+    "github",
+    "bounty",
+    "hbar",
+    "payments",
+    "webhook",
+    "gemini",
+    "plugin"
+  ],
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@hashgraph/hedera-agent-kit": "^4.0.0",
+    "@hiero-ledger/sdk": "^2.84.0",
+    "dotenv": "^16.5.0",
+    "express": "^5.2.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT",
+  "author": "jmgomezl",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jmgomezl/hak-plugin-github-pay"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
