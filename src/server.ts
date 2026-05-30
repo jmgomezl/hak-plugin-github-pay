@@ -126,6 +126,7 @@ export function createWebhookServer(opts: WebhookServerOptions): Express {
           receipts: recent.map((r) => ({
             repo: r.repo,
             prNumber: r.prNumber,
+            prUrl: r.prUrl,
             githubHandle: r.githubHandle,
             account: r.hederaAccountId,
             amountHbar: r.amountHbar,

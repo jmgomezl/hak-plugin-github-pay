@@ -92,8 +92,11 @@
   .rcpt:last-child{border-bottom:none}
   .rcpt .acct{font-family:var(--mono);font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .rcpt .amt{font-family:var(--mono);font-weight:700;color:var(--grn)}
-  .rcpt .t{color:var(--dim);font-size:12px;width:54px;text-align:right}
+  .rcpt .t{color:var(--dim);font-size:12px;width:38px;text-align:right}
   .rcpt a.tx{color:var(--pur);font-family:var(--mono);font-size:12px}
+  .rcpt .src{font-family:var(--mono);font-size:12px;width:72px;text-align:right}
+  .rcpt a.src{color:var(--txt)}.rcpt a.src:hover{color:var(--pur)}
+  .rcpt .src.web{color:#5a5f78}
   .empty{color:var(--dim);font-size:14px;padding:14px 2px}
 
   footer{text-align:center;color:var(--dim);font-size:12.5px;padding:40px 0;border-top:1px solid var(--line);margin-top:44px}
@@ -169,7 +172,11 @@ async function stats(){try{const d=await(await fetch("/api/stats")).json();
 async function rcpts(){try{const d=await(await fetch("/api/receipts?limit=6")).json();
   $("#rlink").href=d.receiptsTopicHashscan||"#";const el=$("#rcpts");
   if(!d.receipts?.length){el.innerHTML='<div class="empty">No payments yet — be the first ☝️</div>';return;}
-  el.innerHTML=d.receipts.map(x=>`<div class="rcpt"><span class="acct">${x.account}</span><span class="amt">+${x.amountHbar} ℏ</span><a class="tx" href="${x.transactionHashscan}" target="_blank">tx ↗</a><span class="t">${ago(x.timestamp)}</span></div>`).join("");
+  el.innerHTML=d.receipts.map(x=>{
+    const isPR=x.prUrl&&x.prUrl.includes("/pull/");
+    const src=isPR?`<a class="src" href="${x.prUrl}" target="_blank">PR #${x.prNumber} ↗</a>`:`<span class="src web">web</span>`;
+    return `<div class="rcpt"><span class="acct">${x.account}</span><span class="amt">+${x.amountHbar} ℏ</span>${src}<a class="tx" href="${x.transactionHashscan}" target="_blank">tx ↗</a><span class="t">${ago(x.timestamp)}</span></div>`;
+  }).join("");
 }catch(e){}}
 async function claim(){
   const a=$("#acct").value.trim(),btn=$("#btn"),out=$("#out");
