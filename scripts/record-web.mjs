@@ -13,9 +13,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const browser = await chromium.launch({ headless: true });
 const ctx = await browser.newContext({
-  viewport: { width: 1180, height: 820 },
+  viewport: { width: 720, height: 820 },
   deviceScaleFactor: 2,
-  recordVideo: { dir: OUT, size: { width: 1180, height: 820 } },
+  recordVideo: { dir: OUT, size: { width: 720, height: 820 } },
 });
 const page = await ctx.newPage();
 
@@ -29,40 +29,30 @@ async function scrollTo(sel) {
 console.log("→ loading", SITE);
 await page.goto(SITE, { waitUntil: "networkidle" });
 await page
-  .waitForFunction(
-    () => {
-      const v = document.querySelector("#s-pool")?.textContent;
-      return v && v !== "—";
-    },
-    { timeout: 15000 },
-  )
+  .waitForFunction(() => document.querySelector("#s1")?.textContent !== "—", { timeout: 15000 })
   .catch(() => {});
-await sleep(2500); // hold on hero + live stats
-
-await scrollTo("#claim");
-await sleep(1800);
+await sleep(2600); // hold on hero + claim card
 
 // Type the account and claim
 const input = page.locator("#acct");
 await input.click();
 for (const ch of ACCOUNT) {
-  await input.type(ch, { delay: 70 });
+  await input.type(ch, { delay: 80 });
 }
-await sleep(600);
-await page.locator("#claimBtn").click();
+await sleep(700);
+await page.locator("#btn").click();
 console.log("→ claiming for", ACCOUNT);
 
 // Wait for the success result
-await page.waitForSelector("#result.ok", { timeout: 40000 }).catch(() => {});
-await sleep(3500); // hold on the paid result + hashscan links
+await page.waitForSelector("#out.ok", { timeout: 40000 }).catch(() => {});
+await sleep(3800); // hold on the paid result + hashscan links
 
-// Show the live receipts updating
-await scrollTo("#receipts");
+// Gently reveal the live receipts updating
+await scrollTo(".sec-h");
 await sleep(3500);
 
-// Back to top for a clean closing frame
 await scrollTo("body");
-await sleep(1500);
+await sleep(1400);
 
 await ctx.close(); // flush video
 await browser.close();
