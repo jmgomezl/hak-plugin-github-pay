@@ -36,6 +36,7 @@ async function main() {
     webhookSecret: getEnv("GITHUB_WEBHOOK_SECRET"),
     githubToken: process.env.GITHUB_TOKEN || undefined,
     slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || undefined,
+    demoAutoRegisterRepo: process.env.DEMO_AUTO_REGISTER_REPO || undefined,
   });
   server.listen(port, () => {
     console.log(`\n🌐 webhook server listening on http://localhost:${port}`);

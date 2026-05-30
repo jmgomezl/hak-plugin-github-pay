@@ -11,7 +11,19 @@ export type WebhookServerOptions = {
   webhookSecret: string;
   githubToken?: string;
   slackWebhookUrl?: string;
+  /**
+   * Demo glue (off unless set). For this one repo, a PR opened with a Hedera
+   * account in its body auto-registers the author on IDENTITIES, so the public
+   * self-serve demo is a single action. Generic deployments leave this unset and
+   * contributors register explicitly via `register_contributor`.
+   */
+  demoAutoRegisterRepo?: string;
 };
+
+// Extract the first Hedera account id (0.0.x) from free text, e.g. a PR body.
+function parseHederaAccount(text?: string): string | null {
+  return text?.match(/0\.0\.\d+/)?.[0] ?? null;
+}
 
 // ─── HMAC validation (X-Hub-Signature-256) ────────────────────────────────────
 
@@ -116,6 +128,28 @@ export function createWebhookServer(opts: WebhookServerOptions): Express {
     try {
       if (event === "ping") {
         res.json({ ok: true, pong: true });
+        return;
+      }
+
+      // Demo self-serve: auto-register the PR author from a Hedera account in the
+      // PR body, so a single opened PR drives the whole flow. Gated to one repo.
+      if (
+        event === "pull_request" &&
+        ["opened", "reopened", "edited", "ready_for_review"].includes(payload.action) &&
+        opts.demoAutoRegisterRepo &&
+        payload.repository?.full_name === opts.demoAutoRegisterRepo
+      ) {
+        const handle: string | undefined = payload.pull_request?.user?.login;
+        const account = parseHederaAccount(payload.pull_request?.body);
+        if (handle && account) {
+          await agent.api.run("github_pay_register_contributor", {
+            github_handle: handle,
+            hedera_account_id: account,
+          });
+          res.json({ ok: true, event, action: payload.action, registered: { handle, account } });
+          return;
+        }
+        res.json({ ok: true, event, action: payload.action, note: "no Hedera account in PR body" });
         return;
       }
 
