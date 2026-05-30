@@ -1,6 +1,6 @@
 {
   "name": "@jmgomezl/github-pay",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "HAK v4 plugin: when a GitHub PR is merged, an AI agent automatically pays the contributor in HBAR. Policy, identity, receipts, and release provenance live immutably on Hedera Consensus Service.",
   "type": "module",
   "license": "MIT",

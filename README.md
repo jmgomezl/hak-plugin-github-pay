@@ -13,13 +13,17 @@
 
 > *Live testnet run: register → policy + cap → **PR merged → 25 HBAR paid** → a retry is blocked by idempotency → contributor balance is exactly 25 ℏ. Every step is sealed on Hedera.*
 
-## 🔴 Try the live demo
+## 🔴 Try it live → [github-pay.aivylabs.xyz](https://github-pay.aivylabs.xyz)
 
-Open a PR at **[jmgomezl/github-pay-demo](https://github.com/jmgomezl/github-pay-demo)** and an AI agent pays you **10 testnet HBAR** automatically — no human in the loop. The deployed server is live:
+A deployed, public instance with a one-click **"Claim 10 HBAR"** button that runs the real on-chain flow — caps and idempotency enforced, receipt sealed on Hedera, live stats and receipts streaming from the server.
 
-- **Endpoint:** [`https://github-pay.aivylabs.xyz/health`](https://github-pay.aivylabs.xyz/health) (per-topic connectivity)
-- **Self-serve flow:** open a PR with your Hedera account in the body → auto-registered on IDENTITIES → auto-merged → **10 HBAR paid + receipt sealed on Hedera**, in ~40s.
-- **Caps make it safe:** 10 HBAR/contributor + 500 HBAR/month — the pool is undrainable, so the interesting part is watching the controls hold under self-serve load.
+![github-pay live web demo](demo-web.gif)
+
+**Two ways to try it:**
+1. **Web:** open [github-pay.aivylabs.xyz](https://github-pay.aivylabs.xyz), paste a testnet account, click *Claim 10 HBAR* — paid + sealed in seconds.
+2. **GitHub-native:** open a PR at **[jmgomezl/github-pay-demo](https://github.com/jmgomezl/github-pay-demo)** with your Hedera account in the body → auto-registered on IDENTITIES → auto-merged → **10 HBAR paid + receipt on Hedera**, in ~40s, no human in the loop.
+
+> **Caps make it safe:** 10 HBAR/contributor + 500 HBAR/month — the pool is undrainable, so the interesting part is watching the controls hold under self-serve load. Server health: [`/health`](https://github-pay.aivylabs.xyz/health).
 
 ---
 
