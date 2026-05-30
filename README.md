@@ -1,4 +1,4 @@
-# @hak-plugins/github-pay
+# @jmgomezl/github-pay
 
 > When a GitHub PR is merged, an AI agent automatically pays the contributor in HBAR — and the policy, identity, receipt, and release provenance all live immutably on the Hedera Consensus Service.
 
@@ -49,7 +49,7 @@ All are HAK v4 `BaseTool` subclasses, exposed through the plain-object plugin pa
 
 ```bash
 # 1. Install
-npm install              # in this repo, or: npm install @hak-plugins/github-pay
+npm install              # in this repo, or: npm install @jmgomezl/github-pay
 
 # 2. Configure
 cp .env.example .env     # then fill in HEDERA_*, GEMINI_API_KEY, GITHUB_WEBHOOK_SECRET
@@ -75,7 +75,7 @@ The agent (Gemini 2.5 Flash, function-calling) maps each request to the right to
 ### Or use the plugin directly in your own HAK agent
 
 ```ts
-import { githubPayPlugin } from "@hak-plugins/github-pay/plugin";
+import { githubPayPlugin } from "@jmgomezl/github-pay/plugin";
 
 const plugin = githubPayPlugin({
   network: "testnet",
