@@ -1,8 +1,8 @@
+import { mkdirSync } from "node:fs";
 // Record a browser demo of the live github-pay landing page (playwright video).
 // Usage: WEB_DEMO_ACCOUNT=0.0.x node scripts/record-web.mjs
 // (run with a cwd that has `playwright` installed, e.g. the AICourt project)
 import { chromium } from "playwright";
-import { mkdirSync } from "node:fs";
 
 const SITE = process.env.SITE || "https://github-pay.aivylabs.xyz";
 const ACCOUNT = process.env.WEB_DEMO_ACCOUNT || "0.0.12345";
@@ -28,10 +28,15 @@ async function scrollTo(sel) {
 
 console.log("→ loading", SITE);
 await page.goto(SITE, { waitUntil: "networkidle" });
-await page.waitForFunction(() => {
-  const v = document.querySelector("#s-pool")?.textContent;
-  return v && v !== "—";
-}, { timeout: 15000 }).catch(() => {});
+await page
+  .waitForFunction(
+    () => {
+      const v = document.querySelector("#s-pool")?.textContent;
+      return v && v !== "—";
+    },
+    { timeout: 15000 },
+  )
+  .catch(() => {});
 await sleep(2500); // hold on hero + live stats
 
 await scrollTo("#claim");
